@@ -13,8 +13,8 @@ Money is whole centavos (int), so 1,250.50 pesos is 125050. Never floats.
 """
 from datetime import date, datetime, time
 
-from sqlalchemy import Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table, Text, \
-    Time, UniqueConstraint
+from sqlalchemy import DDL, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table, \
+    Text, Time, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .db import Base
@@ -251,3 +251,179 @@ class Service(Base):
 
     bay_type: Mapped[BayType] = relationship()
     skill: Mapped[Skill | None] = relationship()
+
+
+# ---------- Customers and vehicles (stage 3) ----------
+
+class Customer(Base):
+    """Someone who brings a vehicle in. Guests are matched by their mobile number;
+    a customer with a login (users.role = customer) has user_id set."""
+    __tablename__ = "customers"
+    __table_args__ = (UniqueConstraint("shop_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str] = mapped_column(String(40))
+    phone_key: Mapped[str] = mapped_column(String(20), index=True)  # digits only: 09175550142
+    email: Mapped[str] = mapped_column(String(254), default="")
+    created_at: Mapped[datetime] = now_column()
+
+    vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="customer", order_by="Vehicle.id")
+
+
+class Vehicle(Base):
+    """A car or motorcycle, known by its plate. One plate is one vehicle in the shop."""
+    __tablename__ = "vehicles"
+    __table_args__ = (UniqueConstraint("shop_id", "plate_key"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))
+    plate: Mapped[str] = mapped_column(String(16))  # as typed: "ABC 1234"
+    plate_key: Mapped[str] = mapped_column(String(16))  # for matching: "ABC1234"
+    make: Mapped[str] = mapped_column(String(40), default="")
+    model: Mapped[str] = mapped_column(String(40), default="")
+    year: Mapped[int | None] = mapped_column(Integer)
+    created_at: Mapped[datetime] = now_column()
+
+    customer: Mapped[Customer] = relationship(back_populates="vehicles")
+
+    @property
+    def label(self):
+        """Like "Toyota Vios · ABC 1234"."""
+        name = " ".join(part for part in (self.make, self.model) if part)
+        return f"{name} · {self.plate}" if name else self.plate
+
+
+# ---------- Bookings (stage 3) ----------
+
+BOOKED, CANCELLED = "booked", "cancelled"
+STATUS_LABELS = {BOOKED: "Booked", CANCELLED: "Cancelled"}
+ONLINE, PHONE, WALK_IN = "online", "phone", "walk_in"
+SOURCE_LABELS = {ONLINE: "Online", PHONE: "Phone", WALK_IN: "Walk-in"}
+
+
+class Appointment(Base):
+    """One visit: a vehicle, its services, one bay and one mechanic, from starts_at to ends_at (UTC).
+
+    The times include the lunch pause: the bay is taken the whole time.
+    `version` goes up on every change. Two people changing the same booking
+    can't overwrite each other: the second save fails (StaleDataError)."""
+    __tablename__ = "appointments"
+    __table_args__ = (CheckConstraint("ends_at > starts_at", name="times"), NEVER_REUSE_IDS)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    ref: Mapped[str] = mapped_column(String(12), unique=True)  # SM-7K3QD, easy to read out on the phone
+    token_hash: Mapped[str] = mapped_column(String(64))  # the manage link's secret, hashed
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customers.id", ondelete="CASCADE"), index=True)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"), index=True)
+    bay_id: Mapped[int] = mapped_column(ForeignKey("bays.id", ondelete="RESTRICT"), index=True)
+    mechanic_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="RESTRICT"), index=True)
+    starts_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+    ends_at: Mapped[datetime] = mapped_column(DateTime)
+    work_minutes: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default=BOOKED)
+    source: Mapped[str] = mapped_column(String(16), default=ONLINE)
+    notes: Mapped[str] = mapped_column(Text, default="")
+    cancel_reason: Mapped[str] = mapped_column(String(200), default="")
+    cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The booking form's one-time key: pressing "Book" twice makes one booking.
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = now_column()
+    updated_at: Mapped[datetime] = now_column()
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    __mapper_args__ = {"version_id_col": version}
+
+    customer: Mapped[Customer] = relationship()
+    vehicle: Mapped[Vehicle] = relationship()
+    bay: Mapped[Bay] = relationship()
+    mechanic: Mapped[User] = relationship(foreign_keys=[mechanic_id])
+    lines: Mapped[list["AppointmentService"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                             order_by="AppointmentService.id")
+
+    @property
+    def price_from(self):
+        return sum(line.price_from for line in self.lines)
+
+
+class AppointmentService(Base):
+    """A service on a booking, copied as it was then: a later price change doesn't rewrite old bookings."""
+    __tablename__ = "appointment_services"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
+    service_id: Mapped[int | None] = mapped_column(ForeignKey("services.id", ondelete="SET NULL"))
+    name: Mapped[str] = mapped_column(String(80))
+    price_from: Mapped[int] = mapped_column(Integer)
+    work_minutes: Mapped[int] = mapped_column(Integer)
+
+
+class Hold(Base):
+    """A time kept for a few minutes while someone fills in their details.
+    Its cells in booked_slots stop anyone else taking the same minutes."""
+    __tablename__ = "holds"
+    __table_args__ = (NEVER_REUSE_IDS,)  # holds are deleted all the time
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(48), unique=True)
+    vehicle_kind: Mapped[str] = mapped_column(String(8))
+    service_ids: Mapped[str] = mapped_column(String(200))  # "3,5"
+    bay_id: Mapped[int] = mapped_column(ForeignKey("bays.id", ondelete="CASCADE"))
+    mechanic_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    starts_at: Mapped[datetime] = mapped_column(DateTime)
+    ends_at: Mapped[datetime] = mapped_column(DateTime)
+    work_minutes: Mapped[int] = mapped_column(Integer)
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = now_column()
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True)
+
+    bay: Mapped[Bay] = relationship()
+    mechanic: Mapped[User] = relationship(foreign_keys=[mechanic_id])
+
+
+class BookedSlot(Base):
+    """THE double-booking guard: one row per 15 minutes per bay and per mechanic.
+
+    UNIQUE(resource_kind, resource_id, slot_start) means the database itself
+    refuses a second booking of the same bay (or mechanic) for the same
+    quarter hour, even when two requests arrive at the same instant. The
+    losing request gets an IntegrityError and is rolled back whole."""
+    __tablename__ = "booked_slots"
+    __table_args__ = (
+        UniqueConstraint("resource_kind", "resource_id", "slot_start"),
+        CheckConstraint("resource_kind IN ('bay', 'mechanic')", name="resource_kind"),
+        CheckConstraint("(appointment_id IS NULL) <> (hold_id IS NULL)", name="one_owner"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    resource_kind: Mapped[str] = mapped_column(String(8))
+    resource_id: Mapped[int] = mapped_column(Integer)
+    slot_start: Mapped[datetime] = mapped_column(DateTime)  # UTC, on a quarter hour
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"),
+                                                       index=True)
+    hold_id: Mapped[int | None] = mapped_column(ForeignKey("holds.id", ondelete="CASCADE"), index=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime)  # a hold's cells stop counting after this
+
+
+# ---------- PostgreSQL's second safety net ----------
+# On PostgreSQL an EXCLUSION constraint also refuses two live bookings whose
+# time ranges overlap on the same bay or the same mechanic. tsrange is [start, end),
+# so a booking ending at 10:00 and one starting at 10:00 may share a bay.
+# SQLite has no such constraint; there the booked_slots cells do the job alone.
+NO_OVERLAP_SQL = [
+    "CREATE EXTENSION IF NOT EXISTS btree_gist",
+    "ALTER TABLE appointments ADD CONSTRAINT appointments_bay_no_overlap EXCLUDE USING gist "
+    "(bay_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+    "ALTER TABLE appointments ADD CONSTRAINT appointments_mechanic_no_overlap EXCLUDE USING gist "
+    "(mechanic_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+]
+for _statement in NO_OVERLAP_SQL:
+    event.listen(Appointment.__table__, "after_create", DDL(_statement).execute_if(dialect="postgresql"))

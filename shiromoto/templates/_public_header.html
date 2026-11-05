@@ -11,6 +11,7 @@
         {% if g.user and g.user.is_staff %}
           <a class="button button-small" href="{{ url_for('desk.today') }}">Back to the desk</a>
         {% elif g.user %}
+          <a href="{{ url_for('garage.index') }}"{% if request.blueprint == 'garage' %} aria-current="page"{% endif %}>My Garage</a>
           <a href="{{ url_for('settings.index') }}"{% if request.blueprint == 'settings' %} aria-current="page"{% endif %}>Settings</a>
         {% else %}
           <a class="button button-small button-quiet" href="{{ url_for('auth.login') }}">Log in</a>

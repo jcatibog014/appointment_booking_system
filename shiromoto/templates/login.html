@@ -17,7 +17,7 @@
           {{ field('password', 'Password', type='password', attrs='autocomplete="current-password" required') }}
           <button class="button" type="submit">Log in</button>
         </form>
-        <p class="card-note">Staff join with the invite link from the owner. Forgot your password? Ask the owner to reset it.</p>
+        <p class="card-note">New customer? <a href="{{ url_for('garage.signup') }}">Make an account</a>, or just <a href="{{ url_for('book.index') }}">book as a guest</a>. Staff join with the owner's invite link.</p>
         <div class="demo-box">
           <p class="card-note">Just looking? Open a sample shop with bays, mechanics and services. It's yours alone, and it disappears after 2 hours.</p>
           <form method="post" action="{{ url_for('auth.demo') }}">

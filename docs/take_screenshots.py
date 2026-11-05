@@ -29,7 +29,8 @@ PHONE = {"width": 390, "height": 844}
 
 # (file name, address, theme, screen size, who: a demo person's name for View As, or None for the owner).
 # {mechanic} is Jun dela Cruz's staff page. "pick:car:Car PMS" ticks services on the Book page
-# and presses "Show free times".
+# and presses "Show free times"; "hold:..." does the same, then presses the first time. "garage:first" opens
+# the first booking in My Garage.
 PAGES = [
     ("home.png", "/", "light", DESKTOP, None),
     ("today.png", "/desk", "light", DESKTOP, None),
@@ -46,6 +47,10 @@ PAGES = [
     ("book-times.png", "pick:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
     ("free-times.png", "pick:car:Car Oil Change|Brake Service", "light", DESKTOP, None),
     ("free-times-dark.png", "pick:moto:Motorcycle PMS", "dark", DESKTOP, None),
+    ("book-details.png", "hold:car:Car Oil Change", "light", DESKTOP, "Carlo Mendoza"),
+    ("booking.png", "garage:first", "light", DESKTOP, "Carlo Mendoza"),
+    ("booking-staff.png", "today:first", "light", DESKTOP, None),
+    ("garage.png", "/garage", "light", DESKTOP, "Carlo Mendoza"),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
     ("phone-times.png", "pick:moto:CVT Cleaning", "light", PHONE, "Carlo Mendoza"),
 ]
@@ -80,6 +85,9 @@ def main(only=None):
         login.goto(f"{BASE}/login")
         if not only or "login.png" in only:
             save(login, "login.png")
+        if not only or "signup.png" in only:
+            login.goto(f"{BASE}/signup")
+            save(login, "signup.png")
         for name, address, theme, size, who in PAGES:
             if only and name not in only:
                 continue
@@ -89,13 +97,20 @@ def main(only=None):
                 address = page.get_by_role("link", name="Jun dela Cruz").get_attribute("href")
             if who:
                 view_as(page, who)
-            if address.startswith("pick:"):
-                _, vehicle, names = address.split(":")
+            if address.startswith(("pick:", "hold:")):
+                action, vehicle, names = address.split(":")
                 page.goto(f"{BASE}/book?vehicle={vehicle}")
                 for service in names.split("|"):
                     page.get_by_role("checkbox", name=service, exact=False).first.check()
                 page.get_by_role("button", name="Show free times").click()
                 page.wait_for_url("**/book?**service=**")
+                if action == "hold":
+                    page.locator(".time-chip").first.click()
+                    page.wait_for_url("**/book/details/**")
+            elif address in ("garage:first", "today:first"):
+                page.goto(BASE + ("/garage" if address == "garage:first" else "/desk"))
+                page.locator("a.row-title[href^='/b/']").first.click()
+                page.wait_for_url("**/b/**")
             else:
                 page.goto(BASE + address)
             save(page, name)

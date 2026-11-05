@@ -117,7 +117,7 @@ def check_login(s, email, password, moment):
 
 def home_for(user):
     """Where a person lands after logging in."""
-    return url_for("desk.today") if user.is_staff else url_for("public.home")
+    return url_for("desk.today") if user.is_staff else url_for("garage.index")
 
 
 def safe_next(target, default=None):
@@ -134,7 +134,10 @@ def safe_next(target, default=None):
 
 
 def log_in(user):
+    remembered = session.get("bookings")  # guest booking links belong to the browser, not the login
     session.clear()  # a new session for the new user (old cookies can't be reused)
+    if remembered:
+        session["bookings"] = remembered
     session.permanent = True  # stay logged in for PERMANENT_SESSION_LIFETIME
     session["user_id"] = user.id
     session["session_version"] = user.session_version

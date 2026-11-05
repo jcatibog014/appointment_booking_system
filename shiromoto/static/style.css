@@ -562,8 +562,36 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .times-title { margin: 1.25rem 0 .6rem; }
 .times-title:first-of-type { margin-top: .25rem; }
 .time-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(9.5rem, 1fr)); gap: .5rem; margin: 0; padding: 0; list-style: none; }
-.time-chip { display: flex; flex-direction: column; align-items: center; padding: .55rem .5rem; border: 1px solid var(--rule-strong); border-radius: var(--radius-small); background: var(--surface-soft); }
+/* Each time is a button: pressing it keeps the time for a few minutes. */
+.time-grid li { display: flex; }
+.time-chip { flex: 1; display: flex; flex-direction: column; align-items: center; padding: .55rem .5rem; border: 1px solid var(--rule-strong); border-radius: var(--radius-small); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.time-chip:hover, .time-chip:focus-visible { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 3px var(--accent-ring); }
 .time-chip strong { font-family: var(--headline); font-size: 1.2rem; }
 .time-chip span { white-space: nowrap; }
 .no-times { font-family: var(--headline); font-size: 1.3rem; font-weight: 600; margin-bottom: .25rem; }
 .call-note { margin: 1.25rem 0 0; padding: .75rem 1rem; border-radius: var(--radius-small); background: var(--accent-soft); }
+
+/* ---------- Holding, booking and the booking's page ---------- */
+
+.held-time { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .75rem 2rem; border-left: 4px solid var(--accent); }
+.held-time p { margin: 0; }
+.held-when { margin: 0; font-family: var(--headline); font-size: 1.7rem; font-weight: 700; line-height: 1.15; }
+.hold-timer { padding: .4rem .8rem; border-radius: var(--radius-small); background: var(--accent-soft); font-size: .92rem; }
+.hold-timer strong { font-variant-numeric: tabular-nums; }
+.hold-timer.is-low { background: var(--warning-soft); color: var(--warning-ink); }
+.hold-timer-done { flex-basis: 100%; color: var(--warning-ink); font-weight: 600; }
+.release-form { margin: -.25rem 0 0; text-align: right; }
+.booking-when { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--rule); }
+.booking-when.is-cancelled .held-when { text-decoration: line-through; color: var(--ink-soft); }
+.detail-list { display: grid; gap: .6rem; margin: 0 0 1.25rem; }
+.detail-list div { display: grid; grid-template-columns: minmax(0, 1fr); gap: .1rem 1.5rem; }
+@container main (min-width: 34rem) { .detail-list div { grid-template-columns: 10rem minmax(0, 1fr); } }
+.detail-list dt { font-size: .85rem; font-weight: 700; color: var(--ink-soft); }
+.detail-list dd { margin: 0; }
+.pill-booked { background: var(--ok-soft); color: var(--ok-ink); border-color: transparent; }
+.pill-cancelled { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.move-compare { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 2rem; }
+.move-compare p { margin: 0; }
+.move-arrow { font-size: 2rem; color: var(--accent); }
+.table-empty { padding: 0 1.5rem 1.25rem; margin: 0; }
+.table-card .card-head.table-title { padding-right: 1.5rem; }

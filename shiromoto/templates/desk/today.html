@@ -45,6 +45,31 @@
     </section>
   {% endif %}
 
+  <section class="card table-card">
+    <div class="card-head table-title"><h2>{{ 'Your Jobs Today' if g.user.role == 'mechanic' else "Today's Bookings" }}</h2><a class="button button-small" href="{{ url_for('book.index') }}">Book a customer</a></div>
+    {% if bookings %}
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">Time</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Mechanic</th><th scope="col">Bay</th></tr></thead>
+          <tbody>
+            {% for item in bookings %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}">
+                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_time(shop.timezone) }}</a></td>
+                <td>{{ item.customer.name }}</td>
+                <td>{{ item.vehicle.label }}</td>
+                <td>{{ item.lines|map(attribute='name')|join(' + ') }}</td>
+                <td>{{ item.mechanic.name }}</td>
+                <td>{{ item.bay.name }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted table-empty">{{ 'No jobs for you today.' if g.user.role == 'mechanic' else 'No bookings today yet.' }}</p>
+    {% endif %}
+  </section>
+
   <div class="grid-2">
     <section class="card">
       <h2>Mechanics</h2>

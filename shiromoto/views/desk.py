@@ -1,14 +1,14 @@
 """The front desk's start page. Stage 1: who's in, what's open, and what's left to set up.
 Stage 4 adds the day's timeline per bay."""
-from datetime import timedelta
+from datetime import time, timedelta
 
-from flask import Blueprint, render_template
+from flask import Blueprint, g, render_template
 from sqlalchemy import func, select
 
 from .. import db, shops
 from ..auth import staff_required
-from ..dates import to_local, utcnow
-from ..models import Bay, Service, ShopHours, User
+from ..dates import at, to_local, utcnow
+from ..models import BOOKED, Appointment, Bay, Service, ShopHours, User
 
 bp = Blueprint("desk", __name__, url_prefix="/desk")
 
@@ -38,7 +38,14 @@ def today():
                      .order_by(Bay.position, Bay.name)).all()
     coming = shops.closures_between(s, shop, day + timedelta(days=1), day + timedelta(days=14))
     steps = setup_steps(s, shop)
+    start = at(day, time(0), shop.timezone)  # midnight on the shop's clock, in UTC
+    bookings = s.scalars(select(Appointment).where(
+        Appointment.shop_id == shop.id, Appointment.status == BOOKED, Appointment.starts_at >= start,
+        Appointment.starts_at < start + timedelta(days=1)).order_by(Appointment.starts_at)).all()
+    if g.user.role == "mechanic":
+        bookings = [b for b in bookings if b.mechanic_id == g.user.id]  # a mechanic sees their own jobs
     greeting = "Good morning" if now.hour < 12 else "Good afternoon" if now.hour < 18 else "Good evening"
     working = sum(off is None for _, _, _, off in plan["mechanics"])
     return render_template("desk/today.html", day=day, plan=plan, greeting=greeting, working=working, bays=bays,
-                           coming=coming, steps=steps, steps_left=sum(not done for _, done, _ in steps))
+                           coming=coming, steps=steps, bookings=bookings,
+                           steps_left=sum(not done for _, done, _ in steps))

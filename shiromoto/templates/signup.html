@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}Make an Account - {{ shop.name if shop else APP_NAME }}{% endblock %}
+{% block body_class %}welcome-layout{% endblock %}
+{% block header %}{% endblock %}
+{% block content %}
+  <div class="welcome">
+    {% include "_welcome.html" %}
+    <section class="welcome-cards">
+      <div class="card">
+        <h1>Make an Account</h1>
+        <p class="card-note">Keep your vehicles and bookings together. You can always book as a guest instead.</p>
+        <form method="post" class="stack">
+          {{ csrf() }}
+          <label class="visually-hidden" aria-hidden="true">Website <input name="website" tabindex="-1" autocomplete="off"></label>
+          {{ field('name', 'Your name', values.name, errors.name, attrs='autocomplete="name" required maxlength="80"') }}
+          {{ field('email', 'Email', values.email, errors.email, type='email', attrs='autocomplete="email" required') }}
+          {{ field('phone', 'Mobile number', values.phone, errors.phone, type='tel', attrs='autocomplete="tel" required') }}
+          {{ field('password', 'Password', error=errors.password, type='password', hint='At least 8 characters', attrs='autocomplete="new-password" required') }}
+          {{ field('confirm_password', 'Password again', type='password', attrs='autocomplete="new-password" required') }}
+          <button class="button" type="submit">Make my account</button>
+        </form>
+        <p class="card-note">Have an account? <a href="{{ url_for('auth.login') }}">Log in</a></p>
+      </div>
+    </section>
+  </div>
+{% endblock %}

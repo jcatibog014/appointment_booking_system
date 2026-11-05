@@ -4,7 +4,7 @@
 
 I made this project to practice three skills: **date and time handling** (opening hours, lunch breaks, holidays and leave), **transactions** (a booking is saved all at once, or not at all) and **concurrency** (two people who press "Book" at the same second can't both get the last slot).
 
-It is built in 8 stages, one pull request each. Stage 1 set up the shop. This is **stage 2: free times**.
+It is built in 8 stages, one pull request each. Stage 1 set up the shop and stage 2 found the free times. This is **stage 3: booking, with no double booking**.
 
 ![The desk's Today page](docs/screenshots/today.png)
 
@@ -20,6 +20,46 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **mechanic** has skills (Engine, Brakes, Electrical, Aircon, Tires, Motorcycle) and working hours.
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
+
+## How Double Booking Is Stopped (Stage 3)
+
+A booking takes **cells**: one row for each 15 minutes, for its bay **and** for its mechanic. The database has one rule on those rows: the same bay (or mechanic) and the same 15 minutes may appear only once.
+
+```
+booked_slots                       UNIQUE (resource, slot_start)
+bay  Lift 1   8:00  ── booking SM-7K3QD
+bay  Lift 1   8:15  ── booking SM-7K3QD
+mech Jun      8:00  ── booking SM-7K3QD      a second booking of Lift 1 at 8:00
+mech Jun      8:15  ── booking SM-7K3QD      is refused BY THE DATABASE
+```
+
+**A race.** Two people press 9:00 at the same second:
+1. Both see 9:00 free, and both try to write their cells.
+2. The first one is saved.
+3. The second one breaks the rule. Its whole transaction is undone, so nothing is half saved.
+4. It looks at the day again. It takes another bay or mechanic if one is free at 9:00. If not, it says "That time was just taken" and shows the times that are still free.
+
+The tests do this for real: 10 threads press the same time at once. With one lift, exactly 1 wins. With two lifts and two mechanics, exactly 2 win.
+
+**More safety:**
+- **Holds.** Pressing a time keeps it for 5 minutes while you type your details (the cells belong to the hold). A hold that runs out stops counting, and the next person can take the time.
+- **One booking per press.** The form carries a one-time key, so a double-click or Back + Book makes one booking, not two.
+- **One transaction for each change.** Booking, moving and cancelling each save everything or nothing. Moving frees the old cells and takes the new ones together.
+- **Nobody overwrites anybody.** Every booking has a version number. If the shop moves your booking while your page is open, your page's old Cancel is refused ("Someone else changed this booking").
+- **On PostgreSQL** (the live site) there are two more locks:
+  - the request locks the bay and mechanic rows first (`SELECT ... FOR UPDATE`), so the second request waits for the first;
+  - an exclusion constraint refuses any two bookings whose times overlap on one bay or one mechanic.
+
+**For customers:**
+- Book as a **guest**: you get a booking number (like SM-7K3QD) and a private **link**. The link opens your booking from any phone, so you can move or cancel it. The browser remembers it too.
+- **Add to calendar:** an .ics file with Manila time and a reminder the evening before.
+- **Move or cancel online** until 12 hours before (the owner sets this). After that, call the shop.
+- **An account (My Garage)** keeps your vehicles and bookings together and fills in the form for you. Open a guest booking's link while logged in, then press **Save to My Garage**.
+
+**For staff:**
+- **Free Times** now books for a caller or a walk-in.
+- **Today** lists the day's bookings. A mechanic sees their own jobs.
+- Staff can open any booking, and can move or cancel it at any time.
 
 ## How Free Times Are Found (Stage 2)
 
@@ -40,7 +80,7 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 - **Several services in one visit** add up their work time. The clean-up happens once, at the end. They must use the same kind of bay: a car is not moved from the lift to the alignment bay halfway through.
 - When a day has no times, the page says why: "Closed: Bonifacio Day", "No mechanic who does this works on this day", "The times left on this day are too soon to book"...
 
-**The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared. Online booking itself comes in stage 3. Until then the page shows the shop's phone number.
+**The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
 
 **Free Times** (staff, in the menu): the same page, plus which mechanics and which bays are free at each time.
 
@@ -65,9 +105,9 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | Role | Can do |
 |---|---|
 | Owner | Everything, including Settings for the shop |
-| Service advisor | The front desk (bookings come in stage 3) |
+| Service advisor | The front desk: bookings for callers and walk-ins |
 | Mechanic | Their jobs (stage 5) and their own week |
-| Customer | Book, change and cancel (stage 3) |
+| Customer | Book, move and cancel; My Garage |
 
 **Safety**
 - Passwords are saved only as hashes. After 5 wrong tries, the account waits 15 minutes.
@@ -78,7 +118,6 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 | Stage | What it adds |
 |---|---|
-| 3 | Booking with no double booking: holds, transactions, races, cancel and reschedule |
 | 4 | The front desk: day and week calendar, walk-ins, check-in |
 | 5 | Jobs: status, checklist and photos, estimates the customer approves, parts and stock |
 | 6 | Email, reminders, waitlist, and an app for your phone |
@@ -97,7 +136,9 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | ![A mechanic's skills and hours](docs/screenshots/mechanic.png) A mechanic's skills and hours | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone |
 | ![Book: choose services](docs/screenshots/book-services.png) Book: choose services | ![Book: free times](docs/screenshots/book-times.png) Book: free times |
 | ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff | ![Free Times in dark mode](docs/screenshots/free-times-dark.png) Free Times, dark mode |
-| ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone | |
+| ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone | ![Your details, with the time kept for you](docs/screenshots/book-details.png) Your details (the time is kept) |
+| ![A booking's page](docs/screenshots/booking.png) A booking's page | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
+| ![My Garage](docs/screenshots/garage.png) My Garage | ![Make an account](docs/screenshots/signup.png) Make an account |
 
 All people in these pictures are made up. They come from Try Demo.
 
