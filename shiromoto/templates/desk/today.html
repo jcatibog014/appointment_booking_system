@@ -48,6 +48,31 @@
     </section>
   {% endif %}
 
+  {% if moves %}
+    <section class="card table-card">
+      <div class="card-head table-title">
+        <h2>Move Requests</h2>
+        <span class="muted small">{{ moves|length }} waiting for an answer</span>
+      </div>
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Now</th><th scope="col">They ask for</th><th scope="col">Asked</th></tr></thead>
+          <tbody>
+            {% for item in moves %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">
+                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ item.customer.name }}</a></td>
+                <td>{{ item.vehicle.label }}</td>
+                <td class="muted">{{ item.starts_at|local_moment(shop.timezone) }}</td>
+                <td><strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong></td>
+                <td class="small">{{ item.move_asked_at|local_moment(shop.timezone) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% endif %}
+
   {% if requests %}
     {% set to_send = requests|selectattr('quote_status', 'equalto', 'to_price')|list|length %}
     <section class="card table-card">

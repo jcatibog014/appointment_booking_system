@@ -17,7 +17,7 @@ import click
 from flask import Blueprint, abort, current_app, jsonify, request
 from flask.cli import with_appcontext
 
-from . import booking, db, notices, waitlist
+from . import booking, db, moves, notices, waitlist
 from .dates import utcnow
 
 bp = Blueprint("tick", __name__)
@@ -28,6 +28,8 @@ def run(s, now):
     for shop in notices.shops_to_tick(s):
         booking.purge_holds(s, shop, now)
         s.commit()
+        for appointment in moves.expire(s, shop, now):
+            notices.safely(s, notices.move_expired, shop, appointment, now)
         waitlist.expire(s, shop, now)
         report["offers"] += waitlist.offer_free_times(s, shop, now)
         if not shop.is_demo:

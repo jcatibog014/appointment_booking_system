@@ -7,7 +7,9 @@
       <a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a>
       <span class="muted small">{{ item.lines|map(attribute='name')|join(' + ') }} · {{ item.vehicle.label }} · {{ item.ref }}</span>
     </div>
-    {% if item.quote_status == 'priced' and item.status == 'booked' %}
+    {% if item.move_status == 'asked' and item.status == 'booked' and item.move_expires_at and item.move_expires_at > now %}
+      <a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">Move requested</a>
+    {% elif item.quote_status == 'priced' and item.status == 'booked' %}
       <a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">Price to confirm</a>
     {% else %}
       <span class="pill pill-{{ item.status }}">{{ STATUS_LABELS[item.status] }}</span>

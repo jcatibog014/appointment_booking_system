@@ -105,6 +105,7 @@ The owner is made with `flask create-owner`. Staff join by an invite link. Custo
 
 After the stages:
 - **Clearer booking words** (PR #5): "slots open", "Choose an available slot", and prices shown as estimates.
+- **Move requests** (`moves.py`, migration 0007): customers ask for a new time instead of moving the booking. The new time is held while the owner, an advisor or a mechanic decides, and approving moves the booking in one transaction.
 - **The Other Service** (`quotes.py`, migration 0006): the customer writes what they need and books a time; staff send the price; the customer confirms or declines it. The answer is a conditional UPDATE on the price the customer saw, and declining shortens or cancels the booking in the same transaction.
 
 Each stage adds `docs/PLAN.md` progress, tests, and sample data for its own features. Each PR retakes the screenshots of pages it changed.

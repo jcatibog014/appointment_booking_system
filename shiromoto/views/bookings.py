@@ -89,11 +89,14 @@ def show(ref):
     can_change = appointment.status == BOOKED and appointment.ends_at > now and (
         by_staff() or booking.customer_can_change(shop, appointment, now))
     mine = g.user is not None and appointment.customer.user_id == g.user.id
+    from .. import moves
+    move_hold = moves.held_time(db.session(), appointment) if appointment.move_waiting(now) else None
     return render_template(
         "booking.html", appointment=appointment, link=manage_link(appointment), can_change=can_change,
         starts=to_local(appointment.starts_at, shop.timezone), ends=to_local(appointment.ends_at, shop.timezone),
         staff_view=by_staff(), public_page=not by_staff(), mine=mine, now=now,
         decide_url=lambda line: url_for("bookings.decide", ref=appointment.ref, line_id=line.id),
+        move_hold=move_hold, move_waiting=appointment.move_waiting(now),
         can_save=g.user is not None and g.user.role == "customer" and appointment.customer.user_id is None)
 
 
@@ -131,12 +134,15 @@ def choose_new_time(ref):
 
 @bp.route("/<ref>/move/confirm", methods=["GET", "POST"])
 def move(ref):
+    """Staff move a booking straight away. A customer asks for the new time (moves.py)."""
     appointment = open_booking(ref)
     shop = shops.current()
     day = parse_day(request.values.get("day"))
     start = request.values.get("start", type=int)
     if day is None or start is None or not 0 <= start < 24 * 60:
         abort(400)
+    if request.method == "POST" and not by_staff():
+        return ask_to_move(appointment, day, start)
     if request.method == "POST":
         s = db.session()
         try:
@@ -156,6 +162,72 @@ def move(ref):
     return render_template("booking_move.html", appointment=appointment, day=day, start=start,
                            old=to_local(appointment.starts_at, shop.timezone), staff_view=by_staff(),
                            public_page=not by_staff())
+
+
+def ask_to_move(appointment, day, start):
+    from .. import moves
+    s = db.session()
+    shop = shops.current()
+    try:
+        moves.ask(s, shop, appointment, day, start, utcnow(), request.form.get("note", ""))
+    except booking.Taken as error:
+        flash(str(error), "error")
+        return redirect(url_for("book.index", move=appointment.ref, day=day.isoformat()))
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+        return redirect(url_for("bookings.show", ref=appointment.ref))
+    notices.safely(s, notices.move_asked, shop, appointment, utcnow())
+    flash("Request sent. We keep the new time for you while the shop decides. Until then, your booking stays "
+          "at its current time.")
+    return redirect(url_for("bookings.show", ref=appointment.ref) + "#move-request")
+
+
+@bp.post("/<ref>/move/answer")
+def answer_move(ref):
+    """Staff approve or decline a customer's request for a new time."""
+    from .. import moves
+    appointment = open_booking(ref)
+    if not by_staff():
+        abort(404)
+    s = db.session()
+    shop = shops.current()
+    approve = request.form.get("answer") == "approve"
+    reply = request.form.get("reply", "")
+    try:
+        if approve:
+            moves.approve(s, shop, appointment, utcnow(), g.user, reply)
+        else:
+            moves.decline(s, shop, appointment, utcnow(), g.user, reply)
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        if approve:
+            flash(f"Moved. Booking {appointment.ref} is on the new time, and {appointment.customer.name} is told.")
+            notices.safely(s, notices.move_approved, shop, appointment, utcnow())
+        else:
+            flash(f"Declined. The booking stays at its time, and {appointment.customer.name} is told.")
+            notices.safely(s, notices.move_declined, shop, appointment, utcnow())
+        offer_freed_time(s)  # the old time (approved) or the held one (declined) is free again
+    return redirect(url_for("bookings.show", ref=appointment.ref) + "#move-request")
+
+
+@bp.post("/<ref>/move/withdraw")
+def withdraw_move(ref):
+    """The customer takes their request back; the booking stays at its time."""
+    from .. import moves
+    appointment = open_booking(ref)
+    s = db.session()
+    try:
+        moves.withdraw(s, shops.current(), appointment, utcnow())
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        flash("Request withdrawn. Your booking stays at its current time.")
+        offer_freed_time(s)
+    return redirect(url_for("bookings.show", ref=appointment.ref))
 
 
 @bp.post("/<ref>/save")

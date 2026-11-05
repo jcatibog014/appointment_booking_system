@@ -32,6 +32,7 @@ PHONE = {"width": 390, "height": 844}
 # and presses "Choose an available slot"; "hold:..." does the same, then presses the first time. "garage:first" opens
 # the first booking in My Garage. "other:moto:text" writes text in the Other Service's box;
 # "price:" opens Carlo's booking with a price to confirm; "toprice:" opens a request the desk must price.
+# "anchor:/garage:move-request" opens the first link to #move-request on /garage and shows that part.
 PAGES = [
     ("home.png", "/", "light", DESKTOP, None),
     ("today.png", "/desk", "light", DESKTOP, None),
@@ -70,6 +71,9 @@ PAGES = [
     ("other-price.png", "price:", "light", DESKTOP, "Carlo Mendoza"),
     ("other-desk.png", "toprice:", "light", DESKTOP, None),
     ("other-price-phone.png", "price:", "dark", PHONE, "Carlo Mendoza"),
+    ("move-ask.png", "anchor:/garage:move-request", "light", DESKTOP, "Carlo Mendoza"),
+    ("move-desk.png", "anchor:/desk:move-request", "light", DESKTOP, None),
+    ("move-desk-dark.png", "anchor:/desk:move-request", "dark", DESKTOP, "Jun dela Cruz"),
     ("waitlist.png", "/desk/waitlist", "light", DESKTOP, "Mika Reyes"),
     ("phone-app.png", "/settings", "light", PHONE, "Carlo Mendoza"),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
@@ -142,6 +146,12 @@ def main(only=None):
                 page.locator("textarea[name=other]").fill(text)
                 page.locator(".other-request").scroll_into_view_if_needed()
                 page.mouse.wheel(0, 260)
+            elif address.startswith("anchor:"):  # open the first link to #part on a page, and show that part
+                _, start, part = address.split(":")
+                page.goto(BASE + start)
+                page.locator(f"a[href*='#{part}']").first.click()
+                page.wait_for_url("**/b/**")
+                page.locator("#" + part).scroll_into_view_if_needed()
             elif address in ("price:", "toprice:"):
                 page.goto(BASE + ("/garage" if address == "price:" else "/desk"))
                 page.locator("a[href*='#other-service']").first.click()

@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, service_price, textarea, visit_price %}
-{% set title = ('Move Booking ' ~ moving.ref) if moving else ('Free Times' if staff_view else 'Book a Service') %}
+{% set title = (('Move Booking ' ~ moving.ref) if staff_view else 'Ask for a New Time') if moving else ('Free Times' if staff_view else 'Book a Service') %}
 {% block title %}{{ title }} - {{ shop.name }}{% endblock %}
 {% block page_class %}book{% endblock %}
 {% block content %}
   <div class="page-head">
     <h1>{{ title }}</h1>
-    <p class="page-sub">{% if moving %}Pick the new day and time. Your booking keeps its services, and it stays where it is until you confirm.{% elif staff_view %}Every time that has a free bay and a free mechanic with the right skills. Times are on the shop's clock.{% else %}Choose your vehicle and services, then pick a day and a time.{% endif %}</p>
+    <p class="page-sub">{% if moving and staff_view %}Pick the new day and time. The booking keeps its services, and it stays where it is until you confirm.{% elif moving %}Pick the day and time you'd like. The shop confirms it, and your booking stays at its current time until then.{% elif staff_view %}Every time that has a free bay and a free mechanic with the right skills. Times are on the shop's clock.{% else %}Choose your vehicle and services, then pick a day and a time.{% endif %}</p>
   </div>
 
   {% if not moving %}

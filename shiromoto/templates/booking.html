@@ -51,10 +51,57 @@
       {% if appointment.status == 'booked' %}
         <p class="actions">
           <a class="button button-quiet" href="{{ url_for('bookings.calendar', ref=appointment.ref) }}">Add to calendar</a>
-          {% if can_change %}<a class="button button-quiet" href="{{ url_for('bookings.choose_new_time', ref=appointment.ref) }}">Move to another time</a>{% endif %}
+          {% if can_change and (staff_view or not move_waiting) %}<a class="button button-quiet" href="{{ url_for('bookings.choose_new_time', ref=appointment.ref) }}">{{ 'Move to another time' if staff_view else 'Ask for another time' }}</a>{% endif %}
         </p>
       {% endif %}
     </section>
+
+    {% if appointment.move_status and appointment.move_status != 'withdrawn' and appointment.move_starts_at %}
+      {% set move = appointment.move_status %}
+      {% set asked_for = appointment.move_starts_at|local_moment(shop.timezone) %}
+      <section class="card move-card" id="move-request">
+        <div class="card-head">
+          <h2>{{ 'Move Request' if staff_view else 'Your Move Request' }}</h2>
+          {% if move_waiting %}<span class="pill job-awaiting_approval">{{ 'To answer' if staff_view else 'Waiting for the shop' }}</span>
+          {% elif move == 'approved' %}<span class="pill pill-booked">Approved</span>
+          {% elif move == 'declined' %}<span class="pill pill-off">Declined</span>
+          {% else %}<span class="pill pill-off">Ran out</span>{% endif %}
+        </div>
+        {% if move_waiting %}
+          <div class="move-compare move-compare-small">
+            <div><p class="kicker">Now</p><p class="held-when muted">{{ appointment.starts_at|local_moment(shop.timezone) }}</p></div>
+            <span class="move-arrow" aria-hidden="true">&rarr;</span>
+            <div><p class="kicker">{{ 'They ask for' if staff_view else 'You asked for' }}</p><p class="held-when">{{ asked_for }}</p></div>
+          </div>
+          {% if appointment.move_note %}<p class="request-text">“{{ appointment.move_note }}”</p>{% endif %}
+          {% if staff_view %}
+            <p class="muted small">Asked {{ appointment.move_asked_at|local_moment(shop.timezone) }}. The new time is kept for them until {{ appointment.move_expires_at|local_moment(shop.timezone) }}{% if move_hold %}, with {{ move_hold.mechanic.name }} in {{ move_hold.bay.name }}{% endif %}.</p>
+            <form method="post" action="{{ url_for('bookings.answer_move', ref=appointment.ref) }}" class="stack">
+              {{ csrf() }}
+              {{ field('reply', 'Note for the customer', hint='Optional, like "See you then" or why the time doesn\'t work', attrs='maxlength="300"') }}
+              <div class="actions">
+                <button class="button" type="submit" name="answer" value="approve">Approve the new time</button>
+                <button class="button button-quiet" type="submit" name="answer" value="decline">Decline</button>
+              </div>
+            </form>
+          {% else %}
+            <p class="call-note">The shop is looking at your request. We keep {{ asked_for }} for you until {{ appointment.move_expires_at|local_moment(shop.timezone) }}. You'll get a message when they answer.</p>
+            <form method="post" action="{{ url_for('bookings.withdraw_move', ref=appointment.ref) }}" class="actions" data-confirm="Withdraw the request? Your booking stays at its current time.">
+              {{ csrf() }}
+              <button class="button button-quiet" type="submit">Withdraw the request</button>
+            </form>
+          {% endif %}
+        {% elif move == 'approved' %}
+          <p class="small">{{ 'Approved by ' ~ appointment.move_decided_by if appointment.move_decided_by else 'Approved' }}, {{ appointment.move_decided_at|local_moment(shop.timezone) }}. The booking moved from {{ appointment.move_from_at|local_moment(shop.timezone) }}.</p>
+          {% if appointment.move_reply %}<p class="request-text">“{{ appointment.move_reply }}”</p>{% endif %}
+        {% elif move == 'declined' %}
+          <p class="small">{{ 'The shop' if not staff_view else (appointment.move_decided_by or 'The shop') }} couldn't take {{ asked_for }}, so the booking stays at its time.{% if not staff_view and can_change %} You can ask for another time.{% endif %}</p>
+          {% if appointment.move_reply %}<p class="request-text">“{{ appointment.move_reply }}”</p>{% endif %}
+        {% else %}
+          <p class="small">The request for {{ asked_for }} ran out before the shop answered, so the booking stays at its time.{% if not staff_view and can_change %} You can ask for another time.{% endif %}</p>
+        {% endif %}
+      </section>
+    {% endif %}
 
     {% if appointment.quote_status %}
       {% set quote = appointment.quote_status %}

@@ -70,7 +70,7 @@ def index():
     due = {v.id: jobs.next_due([b for b in bookings if b.vehicle_id == v.id and b.checked_in_at], lookup)
            for v in customer.vehicles}
     return render_template("garage.html", customer=customer, upcoming=upcoming, past=past[:12], in_shop=in_shop,
-                           due=due, errors={}, public_page=True)
+                           due=due, errors={}, public_page=True, now=now)
 
 
 def read_vehicle(form):

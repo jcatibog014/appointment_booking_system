@@ -1,10 +1,14 @@
 {% extends "base.html" %}
 {% from "_macros.html" import back, csrf %}
-{% block title %}Move Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
+{% from "_macros.html" import textarea %}
+{% block title %}{{ 'Move Booking ' ~ appointment.ref if staff_view else 'Ask for a New Time' }} - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="narrow">
     {{ back(url_for('book.index', move=appointment.ref, day=day.isoformat()), 'Other times') }}
-    <div class="page-head"><h1>Move Booking {{ appointment.ref }}?</h1></div>
+    <div class="page-head">
+      <h1>{{ 'Move Booking ' ~ appointment.ref ~ '?' if staff_view else 'Ask for This New Time?' }}</h1>
+      {% if not staff_view %}<p class="page-sub">The owner, a service advisor or your mechanic confirms it. We keep the new time for you until they answer (up to a day). Until then, your booking stays at its current time.</p>{% endif %}
+    </div>
     <section class="card move-compare">
       <div>
         <p class="kicker">Now</p>
@@ -12,17 +16,22 @@
       </div>
       <span class="move-arrow" aria-hidden="true">&rarr;</span>
       <div>
-        <p class="kicker">New time</p>
+        <p class="kicker">{{ 'New time' if staff_view else 'You ask for' }}</p>
         <p class="held-when">{{ day|day }}, {{ start|slot_time }}</p>
       </div>
     </section>
-    <form method="post" class="form-actions">
+    <form method="post" class="{{ 'form-actions' if staff_view else 'card stack' }}">
       {{ csrf() }}
+      {% if not staff_view %}
+        {{ textarea('note', 'Note for the shop', hint='Optional: why the new time suits you better', rows=2, attrs='maxlength="300"') }}
+        <div class="form-actions">
+      {% endif %}
       <input type="hidden" name="day" value="{{ day.isoformat() }}">
       <input type="hidden" name="start" value="{{ start }}">
       <input type="hidden" name="version" value="{{ appointment.version }}">
       <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Keep the current time</a>
-      <button class="button" type="submit">Move my booking</button>
+      <button class="button" type="submit">{{ 'Move the booking' if staff_view else 'Send the request' }}</button>
+      {% if not staff_view %}</div>{% endif %}
     </form>
   </div>
 {% endblock %}

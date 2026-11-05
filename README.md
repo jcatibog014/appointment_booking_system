@@ -17,7 +17,7 @@ It was built in 8 stages (the plan is in `docs/PLAN.md`). It also installs on a 
 | Owner | Everything, including the shop's Settings, parts and Insights |
 | Service advisor | The front desk: bookings, walk-ins, check-in, customers, parts, waitlist |
 | Mechanic | Their jobs, the calendar and their own week |
-| Customer | Book (as a guest or with an account), ask for a service that isn't listed, move, cancel, approve prices and estimates, My Garage |
+| Customer | Book (as a guest or with an account), ask for a service that isn't listed, ask for a new time, cancel, approve prices and estimates, My Garage |
 
 ## The Shop's Pieces
 
@@ -98,15 +98,15 @@ The tests do this for real: 10 threads press the same time at once. With one lif
   - an exclusion constraint refuses any two bookings whose times overlap on one bay or one mechanic.
 
 **For customers:**
-- Book as a **guest**: you get a booking number (like SM-7K3QD) and a private **link**. The link opens your booking from any phone, so you can move or cancel it. The browser remembers it too.
+- Book as a **guest**: you get a booking number (like SM-7K3QD) and a private **link**. The link opens your booking from any phone, so you can ask for a new time or cancel it. The browser remembers it too.
 - **Add to calendar:** an .ics file with Manila time and a reminder the evening before.
-- **Move or cancel online** until 12 hours before (the owner sets this). After that, call the shop.
+- **Ask for a new time or cancel online** until 12 hours before (the owner sets this). After that, call the shop. A new time needs the shop's OK (see below).
 - **An account (My Garage)** keeps your vehicles and bookings together and fills in the form for you. Open a guest booking's link while logged in, then press **Save to My Garage**.
 
 **For staff:**
 - **Free Times** books for a caller or a walk-in.
 - **Today** lists the day's bookings. A mechanic sees their own jobs.
-- Staff can open any booking, and can move or cancel it at any time.
+- Staff can open any booking, and can move or cancel it at any time. They also answer customers' move requests.
 
 ## The Front Desk
 
@@ -135,6 +135,21 @@ Checked in → Inspecting → Waiting for approval → In progress → Ready for
 - **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
 - **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
 
+## Asking for a New Time
+
+A booked time can't be changed by the customer alone. They **ask**, and the owner, a service advisor or a mechanic **approves or declines**.
+
+1. On their booking, the customer presses **Ask for another time**, picks a day and time, adds a note if they like, and presses **Send the request**.
+2. **The new time is held for them** (up to a day, and never past its own start), so nobody else can book it while the shop decides. **The booking stays at its current time** until then. They can **withdraw** the request.
+3. The desk sees **Move Requests** on Today. The mechanic of that booking and the owner and advisors get a notice. The booking page shows both times, the customer's note, and which mechanic and bay the new time would use.
+4. **Approve the new time** moves the booking, or **Decline** keeps it as it was. Staff can add a note either way, and the customer gets a message. If nobody answers in time, the request **runs out**: the held time is given back and the customer is told.
+
+**How it stays safe:**
+- **Approving is one transaction.** The old time's cells are deleted, the held cells become the booking's (with a count check), the booking gets the new time, bay and mechanic, and the hold is deleted.
+- **Every answer is claimed first** with `UPDATE ... WHERE move_status = 'asked'`. So Approve and Withdraw pressed at the same moment can't both count (a thread test checks this 5 times).
+- **Asking twice at once** (two tabs) makes one request. The second ask's claim fails, and its held time is given back.
+- Cancelling the booking, or staff moving it themselves, ends a waiting request and gives its held time back.
+
 ## A Service That Isn't on the List
 
 Every vehicle has an **Other Service** at the end of its list, for work the shop doesn't list (like "the horn stopped working").
@@ -152,7 +167,7 @@ The owner can change the Other Service's time, bay and skill in **Settings → S
 
 ## Notices, the Waitlist and the Phone App
 
-**Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
+**Notices.** Customers get a message when they book, when the shop answers their move request, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
 - **Email** goes through Gmail with an app password. **Push** goes to phones that turned it on.
 - Every notice goes into an **outbox** first, with a unique key. The same reminder can't be queued twice, even if the timer runs twice at the same moment.
 - Before sending, a notice is **claimed** ("pending" becomes "sending"), so two timers never send the same email twice.
@@ -203,6 +218,8 @@ For the owner, over the last 7, 30 or 90 days:
 | ![My Garage](docs/screenshots/garage.png) My Garage | ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist |
 | ![The Other Service: write what you need](docs/screenshots/other-service.png) Other Service: write what you need | ![The customer confirms or declines the price](docs/screenshots/other-price.png) The customer confirms the price |
 | ![Sending the price, as staff](docs/screenshots/other-desk.png) Sending the price (staff) | ![The price on a phone, in dark mode](docs/screenshots/other-price-phone.png) The price on a phone, dark mode |
+| ![The customer's move request, waiting for the shop](docs/screenshots/move-ask.png) A move request, waiting for the shop | ![Staff approve or decline the new time](docs/screenshots/move-desk.png) Staff approve or decline it |
+| ![A mechanic answers a move request, in dark mode](docs/screenshots/move-desk-dark.png) A mechanic answers, dark mode | |
 | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone |
 | ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Make an account](docs/screenshots/signup.png) Make an account |
 

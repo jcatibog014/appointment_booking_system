@@ -213,7 +213,10 @@ def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None
     for _ in range(MAX_ATTEMPTS):
         try:
             purge_holds(s, shop, now)
-            if s.scalar(select(func.count()).select_from(Hold).where(Hold.shop_id == shop.id)) >= MAX_HOLDS:
+            # Short holds only: a move request keeps its time for up to a day (moves.py), and
+            # shouldn't stop people booking.
+            if s.scalar(select(func.count()).select_from(Hold).where(
+                    Hold.shop_id == shop.id, Hold.expires_at <= now + timedelta(hours=1))) >= MAX_HOLDS:
                 raise BookingError("Booking is very busy right now. Please try again in a few minutes.")
             lock_resources(s, shop, need)
             slot = find_slot(s, shop, need, day, start, now, notice=notice)
@@ -423,6 +426,8 @@ def move(s, shop, appointment, day, start, now, version=None, by_staff=False):
             if slot is None:
                 raise Taken(TAKEN)
             option, bay = pick(slot)
+            from . import moves
+            moves.drop_request(s, appointment, now)  # staff moved it: a waiting request ends here
             s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == appointment.id))
             appointment.starts_at = slots.start_moment(shop, day, start)
             appointment.ends_at = slots.start_moment(shop, day, option.end)
@@ -447,7 +452,9 @@ def move(s, shop, appointment, day, start, now, version=None, by_staff=False):
 def cancel(s, shop, appointment, reason, now, version=None, by_staff=False):
     """Cancel in one transaction: the status changes and the cells are freed together."""
     check_change(shop, appointment, version, now, by_staff)
+    from . import moves
     try:
+        moves.drop_request(s, appointment, now)  # its held new time is given back too
         s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == appointment.id))
         appointment.status = CANCELLED
         appointment.cancel_reason = (reason or "").strip()[:200]
