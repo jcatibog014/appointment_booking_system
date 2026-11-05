@@ -34,6 +34,7 @@
         <h2>Services for Your {{ 'Car' if vehicle == 'car' else 'Motorcycle' }}</h2>
         <a class="small" href="{{ url_for('book.index') }}">Change vehicle</a>
       </div>
+      <p class="muted small">Prices are estimates. The final price depends on your vehicle and what we find when we check it, and we always ask you before doing any extra work.</p>
       {% for category, services in menu.items() %}
         <fieldset class="plain-fieldset service-group">
           <legend><h4>{{ category }}</h4></legend>
@@ -48,7 +49,7 @@
       {% else %}
         <p class="muted">No services for this vehicle right now.</p>
       {% endfor %}
-      <div class="form-actions"><button class="button" type="submit">Show free times</button></div>
+      <div class="form-actions"><button class="button" type="submit">Next: pick a day and time</button></div>
     </form>
 
   {% else %}
@@ -60,7 +61,7 @@
       {% if need %}
         <dl class="facts">
           <div><dt>Work time</dt><dd>about {{ need.work_minutes|duration }}</dd></div>
-          <div><dt>Price</dt><dd>from {{ price_from|peso }}</dd></div>
+          <div><dt>Estimated price</dt><dd>from {{ price_from|peso }}</dd></div>
           {% if staff_view %}<div><dt>Needs</dt><dd>{{ need.bay_type_name }}{% if need.skill_names %} · {{ need.skill_names|join(', ') }}{% endif %}{% if need.buffer_minutes %} · {{ need.buffer_minutes }} min clean-up{% endif %}</dd></div>{% endif %}
         </dl>
       {% endif %}
@@ -82,7 +83,7 @@
               <a class="day-pill{{ ' is-picked' if choice.day == picked.day else '' }}{{ ' is-full' if not choice.count else '' }}" href="{{ day_url(choice.day) }}"{% if choice.day == picked.day %} aria-current="date"{% endif %}>
                 <span class="day-name">{{ choice.day.strftime('%a') }}</span>
                 <span class="day-number">{{ choice.day.day }} {{ choice.day.strftime('%b') }}</span>
-                <span class="day-count">{% if choice.count %}{{ choice.count }} time{{ 's' if choice.count != 1 }}{% elif 'Closed' in (choice.reason or '') %}Closed{% else %}None{% endif %}</span>
+                <span class="day-count">{% if choice.count %}{{ choice.count }} slot{{ 's' if choice.count != 1 }}<span class="day-count-more"> open</span>{% elif 'Closed' in (choice.reason or '') or choice.reason == 'Day off' %}Closed{% elif choice.reason == 'Fully booked.' %}Fully booked{% else %}No slots{% endif %}</span>
               </a>
             </li>
           {% endfor %}
@@ -132,7 +133,7 @@
             {% else %}
               <ul class="time-grid">
                 {% for slot in part_slots %}
-                  <li><button class="time-chip" form="time-form" type="submit" name="start" value="{{ slot.start }}"><strong>{{ slot.start|slot_time }}</strong><span class="muted small">ready about {{ slot.ready|slot_time }}</span></button></li>
+                  <li><button class="time-chip" form="time-form" type="submit" name="start" value="{{ slot.start }}"><strong>{{ slot.start|slot_time }}</strong><span class="muted small">Ready around {{ slot.ready|slot_time }}</span></button></li>
                 {% endfor %}
               </ul>
             {% endif %}

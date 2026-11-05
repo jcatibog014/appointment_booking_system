@@ -22,12 +22,12 @@
       {% endif %}
     </div>
     <div class="stat card">
-      <p class="stat-label">{{ 'Your Jobs' if g.user.role == 'mechanic' else 'Bookings' }}</p>
+      <p class="stat-label">{{ 'Your jobs' if g.user.role == 'mechanic' else 'Bookings' }}</p>
       <p class="stat-value">{{ queue|length }}</p>
       <p class="muted small">{{ counts.checked_in }} checked in · {{ counts.booked }} to come{% if counts.no_show %} · {{ counts.no_show }} no-show{% endif %}</p>
     </div>
     <div class="stat card">
-      <p class="stat-label">Mechanics In</p>
+      <p class="stat-label">Mechanics in</p>
       <p class="stat-value">{{ working }} <span class="stat-of">of {{ plan.mechanics|length }}</span></p>
       <p class="muted small">{{ plan.mechanics|length - working }} off today</p>
     </div>

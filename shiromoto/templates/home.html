@@ -31,7 +31,7 @@
   <section id="services" class="section">
     <div class="section-head">
       <h2>Services and Prices</h2>
-      <p class="muted">Prices start from the amount shown. We always tell you the full price before any extra work.</p>
+      <p class="muted">Prices are estimates that start from the amount shown. The final price depends on your vehicle and what we find, and we always ask you before any extra work.</p>
     </div>
     <div class="menu-columns">
       {% for kind, title in (('car', 'Cars'), ('moto', 'Motorcycles')) %}
@@ -50,7 +50,7 @@
                     <div class="price-figure">
                       <span class="price">from {{ service.price_from|peso }}</span>
                       <span class="muted small">about {{ service.work_minutes|duration }}</span>
-                      <a class="small" href="{{ url_for('book.index', vehicle=kind, service=service.id) }}">Free times<span class="visually-hidden"> for {{ service.name }}</span></a>
+                      <a class="small" href="{{ url_for('book.index', vehicle=kind, service=service.id) }}">Book<span class="visually-hidden"> {{ service.name }}</span></a>
                     </div>
                   </li>
                 {% endfor %}
