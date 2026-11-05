@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field %}
+{% block title %}Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    {% if staff_view %}{{ back(url_for('desk.today'), 'Today') }}{% elif mine %}{{ back(url_for('garage.index'), 'My Garage') }}{% endif %}
+    <div class="page-head">
+      <div class="title-row">
+        <h1>Booking {{ appointment.ref }}</h1>
+        <span class="pill pill-{{ appointment.status }}">{{ STATUS_LABELS[appointment.status] }}</span>
+      </div>
+      <p class="page-sub">{{ appointment.customer.name }} · {{ appointment.vehicle.label }}</p>
+    </div>
+
+    {% if link %}
+      <section class="card new-link">
+        <p class="small"><strong>Keep this link.</strong> It opens this booking from any phone or computer, so you can move or cancel it. This browser remembers it too.</p>
+        <input class="copy-line" value="{{ link }}" readonly data-copy-text aria-label="Your booking link">
+        <button class="button button-small button-quiet" type="button" data-copy-button hidden>Copy link</button>
+      </section>
+    {% endif %}
+
+    <section class="card">
+      <div class="booking-when{{ ' is-cancelled' if appointment.status == 'cancelled' else '' }}">
+        <p class="kicker">{{ starts.date()|long_day }}</p>
+        <p class="held-when">{{ starts.time()|clock }} <span class="muted">to about {{ ends.time()|clock }}</span></p>
+      </div>
+      <dl class="detail-list">
+        <div><dt>Services</dt><dd>{{ appointment.lines|map(attribute='name')|join(' + ') }}</dd></div>
+        <div><dt>Price</dt><dd>from {{ appointment.price_from|peso }} <span class="muted small">(we tell you the full price before any extra work)</span></dd></div>
+        <div><dt>Vehicle</dt><dd>{{ VEHICLE_LABELS[appointment.vehicle.kind] }} · {{ appointment.vehicle.label }}</dd></div>
+        {% if staff_view %}
+          <div><dt>Mechanic and bay</dt><dd>{{ appointment.mechanic.name }} · {{ appointment.bay.name }}</dd></div>
+          <div><dt>Customer</dt><dd>{{ appointment.customer.name }} · <a href="tel:{{ appointment.customer.phone_key }}">{{ appointment.customer.phone }}</a>{% if appointment.customer.email %} · {{ appointment.customer.email }}{% endif %}</dd></div>
+          <div><dt>Booked</dt><dd>{{ SOURCE_LABELS[appointment.source] }}, {{ appointment.created_at|local_moment(shop.timezone) }}</dd></div>
+        {% endif %}
+        {% if appointment.notes %}<div><dt>Notes</dt><dd>{{ appointment.notes }}</dd></div>{% endif %}
+        {% if appointment.status == 'cancelled' %}
+          <div><dt>Cancelled</dt><dd>{{ appointment.cancelled_at|local_moment(shop.timezone) }}{% if appointment.cancel_reason %}: {{ appointment.cancel_reason }}{% endif %}</dd></div>
+        {% endif %}
+        {% if shop.address %}<div><dt>Where</dt><dd>{{ shop.name }}, {{ shop.address }}</dd></div>{% endif %}
+      </dl>
+      {% if appointment.status == 'booked' %}
+        <p class="actions">
+          <a class="button button-quiet" href="{{ url_for('bookings.calendar', ref=appointment.ref) }}">Add to calendar</a>
+          {% if can_change %}<a class="button button-quiet" href="{{ url_for('bookings.choose_new_time', ref=appointment.ref) }}">Move to another time</a>{% endif %}
+        </p>
+      {% endif %}
+    </section>
+
+    {% if appointment.status == 'booked' %}
+      {% if can_change %}
+        <section class="card">
+          <h2>Cancel This Booking</h2>
+          <form method="post" action="{{ url_for('bookings.cancel', ref=appointment.ref) }}" class="stack" data-confirm="Cancel booking {{ appointment.ref }}?">
+            {{ csrf() }}
+            <input type="hidden" name="version" value="{{ appointment.version }}">
+            {{ field('reason', 'Reason', hint='Optional, it helps us', attrs='maxlength="200"') }}
+            <div class="form-actions"><button class="button button-danger" type="submit">Cancel booking</button></div>
+          </form>
+        </section>
+      {% elif not staff_view %}
+        <p class="call-note">It's less than {{ shop.cancel_cutoff_hours }} hours before your booking, so it can't be changed online.{% if shop.phone %} Please call <a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>.{% endif %}</p>
+      {% endif %}
+    {% endif %}
+
+    {% if can_save %}
+      <form method="post" action="{{ url_for('bookings.save', ref=appointment.ref) }}" class="actions">
+        {{ csrf() }}
+        <button class="button button-quiet" type="submit">Save to My Garage</button>
+      </form>
+    {% elif not g.user and appointment.status == 'booked' %}
+      <p class="muted small">Want all your bookings in one place? <a href="{{ url_for('garage.signup') }}">Make an account</a>, then open this link again and press Save to My Garage.</p>
+    {% endif %}
+  </div>
+{% endblock %}

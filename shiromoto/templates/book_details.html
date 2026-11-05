@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select, textarea %}
+{% block title %}Your Details - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <div class="page-head">
+      <h1>{{ 'Book for a Customer' if staff_view else 'Your Details' }}</h1>
+      <p class="page-sub">One step left. Nothing is booked until you press Book.</p>
+    </div>
+
+    <section class="card held-time">
+      <div>
+        <p class="kicker">Your time</p>
+        <p class="held-when">{{ day|long_day }}, {{ start|clock }}</p>
+        <p class="muted small">{{ held.services|map(attribute='name')|join(' + ') }} · ready about {{ ready|clock }}{% if staff_view %} · {{ held.mechanic.name }} · {{ held.bay.name }}{% endif %}</p>
+      </div>
+      <p class="hold-timer" data-countdown="{{ expires_in }}" role="timer" aria-live="off">
+        Kept for you for <strong data-countdown-text>{{ (expires_in // 60) }}:{{ '%02d' % (expires_in % 60) }}</strong>
+      </p>
+      <p class="hold-timer-done" data-countdown-done hidden role="status">Time's up, but you can still try: if nobody took it, it's still yours.</p>
+    </section>
+
+    <form method="post" class="card stack">
+      {{ csrf() }}
+      {# A one-time key for this form: pressing Book twice makes one booking. #}
+      <input type="hidden" name="key" value="{{ request.form.key or key }}">
+      <h2>{{ 'The Customer' if staff_view else 'About You' }}</h2>
+      <div class="form-grid">
+        {{ field('name', 'Name', values.name, errors.name, attrs='autocomplete="name" required maxlength="80"') }}
+        {{ field('phone', 'Mobile number', values.phone, errors.phone, type='tel', hint='We call or text if anything changes', attrs='autocomplete="tel" required') }}
+        {{ field('email', 'Email', values.email, errors.email, type='email', hint='Optional, for the confirmation', attrs='autocomplete="email"') }}
+        {% if staff_view %}{{ select('source', 'Booked by', sources, request.form.source or 'phone') }}{% endif %}
+      </div>
+
+      <h2>{{ 'The Vehicle' if staff_view else 'Your ' ~ ('Car' if held.vehicle_kind == 'car' else 'Motorcycle') }}</h2>
+      {% if my_vehicles %}
+        <fieldset class="plain-fieldset stack">
+          <legend class="visually-hidden">Which vehicle</legend>
+          {% for vehicle in my_vehicles %}
+            <label class="check"><input type="radio" name="vehicle_id" value="{{ vehicle.id }}"{% if loop.first and not request.form.plate %} checked{% endif %}> {{ vehicle.label }}</label>
+          {% endfor %}
+          <label class="check"><input type="radio" name="vehicle_id" value=""{% if request.form.plate %} checked{% endif %}> A different one:</label>
+        </fieldset>
+      {% endif %}
+      <div class="form-grid">
+        {{ field('plate', 'Plate number', values.plate if not my_vehicles else request.form.plate, errors.plate, hint='Like ABC 1234', attrs='autocapitalize="characters" maxlength="16"' ~ ('' if my_vehicles else ' required')) }}
+        {{ field('make', 'Make', values.make if not my_vehicles else request.form.make, errors.make, hint='Like Toyota or Honda', attrs='maxlength="40"') }}
+        {{ field('model', 'Model', values.model if not my_vehicles else request.form.model, errors.model, hint='Like Vios or Click 125', attrs='maxlength="40"') }}
+        {{ field('year', 'Year', values.year if not my_vehicles else request.form.year, errors.year, attrs='inputmode="numeric" maxlength="4"') }}
+      </div>
+      {{ textarea('notes', 'Anything we should know?', values.notes, errors.notes, hint='Optional: a noise, a warning light, when you can drop it off', rows=3, attrs='maxlength="600"') }}
+      <div class="form-actions">
+        <button class="button" type="submit">Book {{ start|clock }}</button>
+      </div>
+    </form>
+
+    <form method="post" action="{{ url_for('book.release', token=held.token) }}" class="release-form">
+      {{ csrf() }}
+      <button class="link-button" type="submit">Choose another time</button>
+    </form>
+  </div>
+{% endblock %}

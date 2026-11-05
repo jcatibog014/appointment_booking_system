@@ -11,6 +11,7 @@ example: add sample data here with every new feature (tests/test_demo.py).
 import secrets
 from datetime import time, timedelta
 
+from sqlalchemy import select
 from werkzeug.security import generate_password_hash
 
 from . import shops
@@ -150,4 +151,74 @@ def build(s, moment, demo=True):
     s.add(Closure(shop_id=shop.id, user_id=people["paolo"].id, kind=LEAVE, reason="Sick leave",
                   starts_on=today - timedelta(days=6), ends_on=today - timedelta(days=6)))
     s.flush()
+    add_bookings(s, shop, people, today, moment)
     return shop
+
+
+# (name, phone, [(kind, plate, make, model, year)]); Carlo has a login (PEOPLE above).
+CUSTOMERS = [
+    ("Carlo Mendoza", "0917 555 1006", [(CAR, "NAB 4821", "Toyota", "Vios", 2019),
+                                        (MOTO, "123 QWE", "Honda", "Click 125i", 2022)]),
+    ("Liza Ramos", "0918 222 3401", [(CAR, "DAF 9022", "Mitsubishi", "Mirage G4", 2020)]),
+    ("Ben Tan", "0919 444 7810", [(CAR, "NCE 1188", "Ford", "Ranger", 2018)]),
+    ("Joy Villanueva", "0927 333 5120", [(MOTO, "456 RTY", "Yamaha", "NMAX", 2021)]),
+    ("Mark Aquino", "0905 111 2290", [(CAR, "ZXA 7745", "Honda", "City", 2016)]),
+]
+
+# (customer, plate, services, days from today, start hour:minute, source, note)
+BOOKINGS = [
+    ("Liza Ramos", "DAF 9022", ["Car PMS"], 0, (8, 0), "online", "Due for the 30,000 km service."),
+    ("Joy Villanueva", "456 RTY", ["CVT Cleaning"], 0, (9, 0), "walk_in", ""),
+    ("Ben Tan", "NCE 1188", ["Brake Service"], 0, (13, 0), "phone", "Squeaking when braking."),
+    ("Carlo Mendoza", "NAB 4821", ["Car Oil Change"], 1, (10, 0), "online", ""),
+    ("Mark Aquino", "ZXA 7745", ["Aircon Cleaning"], 2, (8, 30), "phone", "Aircon smells musty."),
+    ("Carlo Mendoza", "123 QWE", ["Motorcycle PMS"], 3, (10, 0), "online", ""),
+    ("Liza Ramos", "DAF 9022", ["Wheel Alignment"], 5, (14, 0), "online", "Pulls to the left."),
+    ("Ben Tan", "NCE 1188", ["Engine Diagnostics"], 6, (9, 0), "phone", "Check engine light is on."),
+]
+
+
+def add_bookings(s, shop, people, today, moment):
+    """Sample bookings from today on, one past visit and one cancelled one, all placed
+    with the real slot finder so they never overlap. A day the shop is closed moves
+    the booking to the next open day."""
+    from . import booking
+    from .models import CANCELLED, Customer, Service, Vehicle
+
+    services = {sv.name: sv for sv in s.scalars(select(Service).where(Service.shop_id == shop.id))}
+    customers, vehicles = {}, {}
+    for name, phone, owned in CUSTOMERS:
+        user = people["carlo"] if name == "Carlo Mendoza" else None
+        customer = Customer(shop_id=shop.id, user_id=user.id if user else None, name=name, phone=phone,
+                            phone_key=booking.phone_key(phone), email=user.email if user else "",
+                            created_at=moment - timedelta(days=60))
+        s.add(customer)
+        s.flush()
+        customers[name] = customer
+        for kind, plate, make, model, year in owned:
+            vehicle = Vehicle(shop_id=shop.id, customer_id=customer.id, kind=kind, plate=plate,
+                              plate_key=booking.plate_key(plate), make=make, model=model, year=year,
+                              created_at=customer.created_at)
+            s.add(vehicle)
+            vehicles[plate] = vehicle
+    s.flush()
+
+    def book(name, plate, names, offset, start, source="online", notes="", status="booked"):
+        for extra in range(10):  # the next day the shop is open, if that day is closed
+            placed = booking.place(s, shop, [services[n] for n in names], vehicles[plate], customers[name],
+                                   today + timedelta(days=offset + extra), start[0] * 60 + start[1], moment,
+                                   source=source, notes=notes, status=status)
+            if placed is not None:
+                return placed
+        return None
+
+    for name, plate, names, offset, start, source, notes in BOOKINGS:
+        book(name, plate, names, offset, start, source, notes)
+    # Carlo's earlier visit, and one he cancelled.
+    past = book("Carlo Mendoza", "NAB 4821", ["Car PMS"], -40, (8, 0))
+    if past is not None:
+        past.created_at = past.updated_at = past.starts_at - timedelta(days=3)
+    cancelled = book("Carlo Mendoza", "NAB 4821", ["Battery Check and Replacement"], 4, (15, 0), status=CANCELLED)
+    if cancelled is not None:
+        cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)
+    s.flush()

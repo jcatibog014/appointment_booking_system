@@ -46,7 +46,16 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - A visit is one bay and one mechanic: `need_for()` refuses services that need different bay types. The work adds up; the clean-up is the longest one, done once.
   - The bay counts as taken over lunch (the car stays on the lift). Touching intervals don't overlap.
   - Every "no times" result has a reason for the person; keep them specific.
-- **The Book page (`views/book.py`)** is GET-only, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
+- **Booking (`booking.py`) is the only place bookings change.** Each function (`hold`, `confirm`, `move`, `cancel`, `place`) is one transaction: it commits, or rolls back and raises a `BookingError` subclass (`Taken`, `Gone`, `TooLate`, `Changed`) whose text is shown to the person.
+  - The guard is `booked_slots`: one row per quarter hour per bay and per mechanic, with UNIQUE(resource_kind, resource_id, slot_start). Holds own cells too, with `expires_at`; expired holds are ignored by `busy_map` and purged at the next `hold`.
+  - A lost race (IntegrityError/OperationalError) is retried up to `MAX_ATTEMPTS` with a fresh read.
+  - On PostgreSQL, `lock_resources` takes `FOR UPDATE` on the bays and mechanics in id order, and `models.NO_OVERLAP_SQL` adds exclusion constraints (in migration 0002 and in `create_all` via an `after_create` DDL).
+  - `confirm` turns a hold's cells into the booking's cells with one UPDATE and checks the count. The form's `key` is `idempotency_key` (unique), so a second press returns the same booking. Ask the database, not the session, whether a hold still exists.
+  - `Appointment.version` is SQLAlchemy's `version_id_col`; pages send it back, and a stale one raises `Changed`.
+  - `holds`, `appointments`, `shops` and `users` use `sqlite_autoincrement`: SQLite would otherwise reuse a deleted row's id.
+  - The race tests (`tests/test_booking.py`) use real threads. Run them on Neon too (`TEST_DATABASE_URL`).
+- **Booking pages:** `/b/<ref>` opens with the manage link (`?t=`; only its SHA-256 is stored, and it is remembered in `session["bookings"]`, which survives logging in), for the customer it belongs to, or for staff. Everyone else gets 404. Customers can change a booking until `cancel_cutoff_hours` before it; staff always can. `calendar_file.py` writes the .ics by hand (TZID + VTIMEZONE, escaping, 75-byte folding).
+- **The Book page (`views/book.py`)** keeps the first steps as GETs, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.
 - **Holidays:** `shops.ph_holidays(year)` works out Holy Week from `easter()` and National Heroes Day from `last_monday()`. Eid and Chinese New Year are added by hand.
 - **Migrations:** after changing `models.py`, run `upgrade-db`, then `.venv\Scripts\alembic revision --autogenerate --rev-id 00NN -m "what changed"` and check the file.

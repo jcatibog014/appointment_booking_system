@@ -56,6 +56,11 @@ def day_range(first, last):
     return day(first) if first == last else f"{day(first)} – {day(last)}"
 
 
+def local_time(moment, tz_name="Asia/Manila"):
+    """Naive UTC -> "1:30 PM" on the shop's clock."""
+    return clock(to_local(moment, tz_name).time()) if moment else ""
+
+
 def local_moment(moment, tz_name="Asia/Manila"):
     """Naive UTC -> "Thu 5 Nov, 1:30 PM" on the shop's clock."""
     if moment is None:
@@ -66,4 +71,5 @@ def local_moment(moment, tz_name="Asia/Manila"):
 
 def init_app(app):
     app.jinja_env.filters.update(peso=peso, pesos_input=pesos_input, clock=clock, slot_time=slot_time, duration=duration, day=day,
-                                 long_day=long_day, day_range=day_range, local_moment=local_moment)
+                                 long_day=long_day, day_range=day_range, local_moment=local_moment,
+                                 local_time=local_time)

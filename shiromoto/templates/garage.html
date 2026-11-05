@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field, select %}
+{% block title %}My Garage - {{ shop.name }}{% endblock %}
+{% macro booking_row(item) %}
+  <li>
+    <div class="row-main">
+      <a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a>
+      <span class="muted small">{{ item.lines|map(attribute='name')|join(' + ') }} · {{ item.vehicle.label }} · {{ item.ref }}</span>
+    </div>
+    <span class="pill pill-{{ item.status }}">{{ STATUS_LABELS[item.status] }}</span>
+  </li>
+{% endmacro %}
+{% block content %}
+  <div class="page-head">
+    <h1>My Garage</h1>
+    <a class="button" href="{{ url_for('book.index') }}">Book a service</a>
+    <p class="page-sub">Hello, {{ g.user.first_name }}. Your vehicles and bookings at {{ shop.name }}.</p>
+  </div>
+  <div class="split">
+    <div>
+      <section class="card">
+        <h2>Coming Up</h2>
+        {% if upcoming %}
+          <ul class="row-list">{% for item in upcoming %}{{ booking_row(item) }}{% endfor %}</ul>
+        {% else %}
+          <p class="muted">No bookings coming up. <a href="{{ url_for('book.index') }}">Find a free time</a>.</p>
+        {% endif %}
+      </section>
+      {% if past %}
+        <section class="card">
+          <h2>Past and Cancelled</h2>
+          <ul class="row-list">{% for item in past %}{{ booking_row(item) }}{% endfor %}</ul>
+        </section>
+      {% endif %}
+    </div>
+    <div>
+      <section class="card">
+        <h2>My Vehicles</h2>
+        {% if customer.vehicles %}
+          <ul class="row-list">
+            {% for vehicle in customer.vehicles %}
+              <li>
+                <span class="vehicle-tag vehicle-{{ vehicle.kind }}">{{ 'Car' if vehicle.kind == 'car' else 'Moto' }}</span>
+                <div class="row-main"><strong>{{ vehicle.plate }}</strong><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span></div>
+                <a class="button button-small button-quiet" href="{{ url_for('book.index', vehicle=vehicle.kind) }}">Book</a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <p class="muted">Add your car or motorcycle, and the booking form fills it in for you.</p>
+        {% endif %}
+      </section>
+      <section class="card">
+        <h2>Add a Vehicle</h2>
+        <form method="post" action="{{ url_for('garage.add_vehicle') }}" class="stack">
+          {{ csrf() }}
+          <div class="form-grid">
+            {{ select('kind', 'Kind', [('car', 'Car'), ('moto', 'Motorcycle')], 'car') }}
+            {{ field('plate', 'Plate number', hint='Like ABC 1234', attrs='required maxlength="16" autocapitalize="characters"') }}
+            {{ field('make', 'Make', attrs='maxlength="40"') }}
+            {{ field('model', 'Model', attrs='maxlength="40"') }}
+            {{ field('year', 'Year', attrs='inputmode="numeric" maxlength="4"') }}
+          </div>
+          <div class="form-actions"><button class="button" type="submit">Add vehicle</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endblock %}

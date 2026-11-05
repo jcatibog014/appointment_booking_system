@@ -1,19 +1,21 @@
 {% extends "base.html" %}
-{% from "_macros.html" import empty %}
-{% set title = 'Free Times' if staff_view else 'Book a Service' %}
+{% from "_macros.html" import csrf %}
+{% set title = ('Move Booking ' ~ moving.ref) if moving else ('Free Times' if staff_view else 'Book a Service') %}
 {% block title %}{{ title }} - {{ shop.name }}{% endblock %}
 {% block page_class %}book{% endblock %}
 {% block content %}
   <div class="page-head">
     <h1>{{ title }}</h1>
-    <p class="page-sub">{% if staff_view %}Every time that has a free bay and a free mechanic with the right skills. Times are on the shop's clock.{% else %}Choose your vehicle and services, then pick a day and a time.{% endif %}</p>
+    <p class="page-sub">{% if moving %}Pick the new day and time. Your booking keeps its services, and it stays where it is until you confirm.{% elif staff_view %}Every time that has a free bay and a free mechanic with the right skills. Times are on the shop's clock.{% else %}Choose your vehicle and services, then pick a day and a time.{% endif %}</p>
   </div>
 
+  {% if not moving %}
   <ol class="steps" aria-label="Steps">
     <li class="{{ 'is-done' if step > 1 else 'is-current' }}">{% if step > 1 %}<a href="{{ url_for('book.index') }}">Vehicle</a>{% else %}Vehicle{% endif %}</li>
     <li class="{{ 'is-done' if step > 2 else ('is-current' if step == 2 else '') }}">{% if step > 2 %}<a href="{{ change_url }}">Services</a>{% else %}Services{% endif %}</li>
     <li class="{{ 'is-current' if step == 3 else '' }}">Day and time</li>
   </ol>
+  {% endif %}
 
   {% if step == 1 %}
     <div class="vehicle-choice">
@@ -62,7 +64,11 @@
           {% if staff_view %}<div><dt>Needs</dt><dd>{{ need.bay_type_name }}{% if need.skill_names %} · {{ need.skill_names|join(', ') }}{% endif %}{% if need.buffer_minutes %} · {{ need.buffer_minutes }} min clean-up{% endif %}</dd></div>{% endif %}
         </dl>
       {% endif %}
-      <a class="button button-small button-quiet" href="{{ change_url }}">Change services</a>
+      {% if moving %}
+        <a class="button button-small button-quiet" href="{{ url_for('bookings.show', ref=moving.ref) }}">Keep the current time</a>
+      {% else %}
+        <a class="button button-small button-quiet" href="{{ change_url }}">Change services</a>
+      {% endif %}
     </section>
 
     {% if problem %}
@@ -90,12 +96,26 @@
           <p class="no-times">{{ picked.reason }}</p>
           <p class="muted small">Try another day above.</p>
         {% else %}
+          {# One form for every time on the day: each time is its own button (name="start").
+             Moving goes to a confirm page (GET); a new booking holds the time (POST). #}
+          {% if moving %}
+            <form id="time-form" method="get" action="{{ url_for('bookings.move', ref=moving.ref) }}">
+              <input type="hidden" name="day" value="{{ picked.day.isoformat() }}">
+            </form>
+          {% else %}
+            <form id="time-form" method="post" action="{{ url_for('book.hold') }}">
+              {{ csrf() }}
+              <input type="hidden" name="vehicle" value="{{ vehicle }}">
+              {% for service in chosen %}<input type="hidden" name="service" value="{{ service.id }}">{% endfor %}
+              <input type="hidden" name="day" value="{{ picked.day.isoformat() }}">
+            </form>
+          {% endif %}
           {% for part, part_slots in (('Morning', morning), ('Afternoon', afternoon)) if part_slots %}
             <h3 class="times-title">{{ part }}</h3>
             {% if staff_view %}
               <div class="table-scroll">
                 <table class="table times-table">
-                  <thead><tr><th scope="col">Starts</th><th scope="col">Ready by</th><th scope="col">Free mechanics</th><th scope="col">Free bays</th></tr></thead>
+                  <thead><tr><th scope="col">Starts</th><th scope="col">Ready by</th><th scope="col">Free mechanics</th><th scope="col">Free bays</th><th scope="col"><span class="visually-hidden">Book</span></th></tr></thead>
                   <tbody>
                     {% for slot in part_slots %}
                       <tr>
@@ -103,6 +123,7 @@
                         <td>{{ slot.ready|slot_time }}</td>
                         <td>{{ slot.mechanics|map(attribute='name')|join(', ') }}</td>
                         <td>{{ slot.bays|map(attribute='name')|join(', ') }}</td>
+                        <td class="num"><button class="button button-small{{ ' button-quiet' if not loop.first }}" form="time-form" type="submit" name="start" value="{{ slot.start }}">{{ 'Move here' if moving else 'Book' }}<span class="visually-hidden"> {{ slot.start|slot_time }}</span></button></td>
                       </tr>
                     {% endfor %}
                   </tbody>
@@ -111,13 +132,13 @@
             {% else %}
               <ul class="time-grid">
                 {% for slot in part_slots %}
-                  <li class="time-chip"><strong>{{ slot.start|slot_time }}</strong><span class="muted small">ready about {{ slot.ready|slot_time }}</span></li>
+                  <li><button class="time-chip" form="time-form" type="submit" name="start" value="{{ slot.start }}"><strong>{{ slot.start|slot_time }}</strong><span class="muted small">ready about {{ slot.ready|slot_time }}</span></button></li>
                 {% endfor %}
               </ul>
             {% endif %}
           {% endfor %}
-          {% if not staff_view %}
-            <p class="call-note">Online booking is coming soon.{% if shop.phone %} To book one of these times now, call <a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>.{% endif %}</p>
+          {% if not staff_view and not moving %}
+            <p class="call-note">Pick a time and it's kept for you for {{ shop.hold_minutes }} minutes while you fill in your details.</p>
           {% endif %}
         {% endif %}
       </section>

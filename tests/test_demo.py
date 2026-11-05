@@ -7,14 +7,14 @@ from sqlalchemy import func, select
 
 from shiromoto import auth, db
 from shiromoto.dates import utcnow
-from shiromoto.models import Bay, Service, Shop, User
+from shiromoto.models import Appointment, Bay, Service, Shop, User
 
 from .conftest import CSRF, PASSWORD, find, post
 
 # Words that only appear when a list is empty. A demo page must show none of them.
 EMPTY_PAGE_SIGNS = ["No mechanics yet", "No bays yet", "No Services Yet", "Nothing planned", "open as usual",
                     "No holidays, closures or leave", "No skills set", "services yet",
-                    "No services for this vehicle"]
+                    "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle"]
 
 
 def start_demo(app):
@@ -94,7 +94,7 @@ def test_view_as_switches_who_you_are(app, demo):
     assert "Mika" in page and "Finish Setting Up" not in page
     assert demo.get("/settings/services").status_code == 403  # an advisor can't
     carlo = person(app, shop_id, "customer")
-    assert view_as(demo, carlo).headers["Location"] == "/"
+    assert view_as(demo, carlo).headers["Location"] == "/garage"
     assert demo.get("/desk").status_code == 403
     # Back to the owner.
     view_as(demo, visitor(demo))
@@ -163,8 +163,13 @@ def test_the_demo_has_a_limit(app, monkeypatch):
 def pages_for(app, role, shop_id):
     pms = find(app, Service, Service.shop_id == shop_id, Service.name == "Car PMS")[0]
     pages = ["/", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
+    first_booking = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.status == "booked")[0]
     if role != "customer":
-        pages.append("/desk")
+        pages += ["/desk", f"/b/{first_booking.ref}"]
+    else:
+        carlos = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.customer.has(user_id=find(
+            app, User, User.shop_id == shop_id, User.role == "customer")[0].id))
+        pages += ["/garage"] + [f"/b/{item.ref}" for item in carlos]
     if role == "owner":
         service = find(app, Service, Service.shop_id == shop_id)[0]
         mechanic = person(app, shop_id, "mechanic")
@@ -189,11 +194,11 @@ def test_no_page_the_demo_can_open_is_empty(app, demo, role):
 def test_the_demo_shows_free_times_with_mechanics_and_bays(app, demo):
     pms = find(app, Service, Service.shop_id == visitor(demo).shop_id, Service.name == "Car PMS")[0]
     page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
-    assert "Free mechanics" in page and "Lift 1" in page
+    assert "Free mechanics" in page and "Free bays" in page and "Lift " in page
     customer = person(app, visitor(demo).shop_id, "customer")
     view_as(demo, customer)
     page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
-    assert "ready about" in page and "Lift 1" not in page
+    assert "ready about" in page and "Free bays" not in page
 
 
 def test_the_demo_shows_leave_a_part_day_closure_and_a_day_off(app, demo):

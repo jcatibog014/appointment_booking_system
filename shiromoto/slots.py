@@ -328,8 +328,10 @@ def day_choice(s, shop, need, day, now, busy=None):
     return DayChoice(day, slots, reason)
 
 
-def week_of_choices(s, shop, need, start_day, now, count=7):
-    return [day_choice(s, shop, need, start_day + timedelta(days=n), now) for n in range(count)]
+def week_of_choices(s, shop, need, start_day, now, count=7, busy_for=None):
+    """`count` days of choices. busy_for(day) gives that day's taken intervals (booking.busy_map)."""
+    days = [start_day + timedelta(days=n) for n in range(count)]
+    return [day_choice(s, shop, need, day, now, busy_for(day) if busy_for else None) for day in days]
 
 
 def start_moment(shop, day, start):

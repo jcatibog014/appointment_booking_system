@@ -150,7 +150,30 @@ function setUpAutoSubmit() {
   });
 }
 
+// The held time's countdown. The server decides what really happens when it runs
+// out (another person may take the time); this only shows how long is left.
+function setUpCountdown() {
+  const timer = document.querySelector("[data-countdown]");
+  if (!timer) return;
+  const text = timer.querySelector("[data-countdown-text]");
+  const done = document.querySelector("[data-countdown-done]");
+  const ends = Date.now() + Number(timer.dataset.countdown) * 1000;
+  const tick = () => {
+    const left = Math.max(0, Math.round((ends - Date.now()) / 1000));
+    text.textContent = `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+    timer.classList.toggle("is-low", left <= 60);
+    if (left === 0) {
+      timer.hidden = true;
+      if (done) done.hidden = false;
+      return;
+    }
+    setTimeout(tick, 1000);
+  };
+  tick();
+}
+
 setUpTheme();
+setUpCountdown();
 setUpToasts();
 setUpMenu();
 setUpUserMenu();

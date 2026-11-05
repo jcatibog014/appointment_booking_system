@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf %}
+{% block title %}Move Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    {{ back(url_for('book.index', move=appointment.ref, day=day.isoformat()), 'Other times') }}
+    <div class="page-head"><h1>Move Booking {{ appointment.ref }}?</h1></div>
+    <section class="card move-compare">
+      <div>
+        <p class="kicker">Now</p>
+        <p class="held-when muted">{{ old.date()|day }}, {{ old.time()|clock }}</p>
+      </div>
+      <span class="move-arrow" aria-hidden="true">&rarr;</span>
+      <div>
+        <p class="kicker">New time</p>
+        <p class="held-when">{{ day|day }}, {{ start|slot_time }}</p>
+      </div>
+    </section>
+    <form method="post" class="form-actions">
+      {{ csrf() }}
+      <input type="hidden" name="day" value="{{ day.isoformat() }}">
+      <input type="hidden" name="start" value="{{ start }}">
+      <input type="hidden" name="version" value="{{ appointment.version }}">
+      <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Keep the current time</a>
+      <button class="button" type="submit">Move my booking</button>
+    </form>
+  </div>
+{% endblock %}
