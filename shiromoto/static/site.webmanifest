@@ -1,0 +1,19 @@
+{
+  "name": "ShiroMoto Garage",
+  "short_name": "ShiroMoto",
+  "description": "Book car and motorcycle service, follow your vehicle in the shop, and approve estimates.",
+  "start_url": "/?from=app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#16151c",
+  "theme_color": "#16151c",
+  "icons": [
+    {"src": "/static/icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/static/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ],
+  "shortcuts": [
+    {"name": "Book a service", "url": "/book", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]},
+    {"name": "Today at the desk", "url": "/desk", "icons": [{"src": "/static/icons/icon-192.png", "sizes": "192x192"}]}
+  ]
+}

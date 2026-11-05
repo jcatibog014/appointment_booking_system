@@ -707,3 +707,12 @@ a.tl-block:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-
 tr.is-low td:first-child { box-shadow: inset 3px 0 0 var(--warning-ink); }
 .in-shop { border-left: 4px solid var(--accent); }
 .due-line { color: var(--accent-strong); }
+
+/* ---------- Waitlist and the phone app ---------- */
+
+.pill.wait-waiting { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
+.pill.wait-offered { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
+.pill.wait-booked { background: var(--ok-soft); color: var(--ok-ink); border-color: transparent; }
+.steps-list { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .25rem; }
+.push-card { border-left: 4px solid var(--accent); }
+details summary { cursor: pointer; }

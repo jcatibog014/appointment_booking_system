@@ -9,11 +9,11 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .. import db, forms, jobs, photos, shops
+from .. import db, forms, jobs, notices, photos, shops
 from ..auth import roles_required, staff_required
 from ..booking import BookingError
 from ..dates import local_today, utcnow
-from ..models import ADVISOR, CHECK_LABELS, FUEL_LEVELS, JOB_LABELS, JOB_ORDER, LABOR, OWNER, PART, RELEASED, \
+from ..models import ADVISOR, CHECK_LABELS, FUEL_LEVELS, JOB_LABELS, JOB_ORDER, LABOR, OWNER, PART, READY, RELEASED, \
     Appointment, Job, Part, Photo, Service, StockMove, Vehicle
 from .bookings import open_booking
 
@@ -80,9 +80,11 @@ def move(job_id):
     status = request.form.get("status")
     if status not in JOB_LABELS:
         abort(400)
-    return attempt(job, lambda s: jobs.move(s, job, status, utcnow(), g.user, request.form.get("version", type=int),
-                                            request.form.get("note", "")),
-                   f"The job is now: {JOB_LABELS[status]}.")
+    def act(s):
+        jobs.move(s, job, status, utcnow(), g.user, request.form.get("version", type=int), request.form.get("note", ""))
+        if status == READY:
+            notices.safely(s, notices.ready, shops.current(), job, utcnow())
+    return attempt(job, act, f"The job is now: {JOB_LABELS[status]}.")
 
 
 @bp.post("/jobs/<int:job_id>/checklist")
@@ -170,9 +172,12 @@ def add_line(job_id):
         flash(problem, "error")
         return back_to(job)
     quantity = request.form.get("quantity", type=int) or 1
-    return attempt(job, lambda s: jobs.add_line(s, job, kind, request.form.get("description", ""),
-                                                request.form.get("reason", ""), quantity, price, utcnow(), part),
-                   "Added to the estimate. The customer can approve it from their booking page.")
+    def act(s):
+        jobs.add_line(s, job, kind, request.form.get("description", ""), request.form.get("reason", ""), quantity,
+                      price, utcnow(), part)
+        s.refresh(job)
+        notices.safely(s, notices.estimate_waiting, shops.current(), job, utcnow())
+    return attempt(job, act, "Added to the estimate. The customer can approve it from their booking page.")
 
 
 @bp.post("/jobs/<int:job_id>/lines/<int:line_id>/remove")

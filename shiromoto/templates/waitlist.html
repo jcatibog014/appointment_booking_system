@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Your Waitlist Place - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <div class="page-head">
+      <div class="title-row"><h1>Your Waitlist Place</h1><span class="pill wait-{{ entry.status }}">{{ WAITLIST_LABELS[entry.status] }}</span></div>
+      <p class="page-sub">{{ entry.name }} · {{ services|map(attribute='name')|join(' + ') }} · {{ entry.first_day|day_range(entry.last_day) }}</p>
+    </div>
+    <section class="card">
+      {% if entry.status == 'offered' %}
+        <p class="held-when">A time opened up for you!</p>
+        <p>We're keeping it until {{ entry.offer_expires_at|local_time(shop.timezone) }}.</p>
+        <p><a class="button" href="{{ url_for('book.details', token=entry.hold_token) }}">See the time and book it</a></p>
+      {% elif entry.status == 'waiting' %}
+        <p>{{ 'Others joined before you, so they get the first times that open up.' if ahead else "You're first in line." }}
+          When a time opens up, we keep it for you for 30 minutes and send you a link{% if entry.email %} at {{ entry.email }}{% endif %}.</p>
+        <p class="muted small">Keep this page's address to come back to it. You can also turn on notifications on this phone from Settings once you install the app.</p>
+      {% elif entry.status == 'booked' %}
+        <p>You booked one of the times we offered. See you soon!</p>
+      {% else %}
+        <p>This waitlist place has ended. You can <a href="{{ url_for('book.index') }}">look for a time</a> again.</p>
+      {% endif %}
+      {% if entry.status in ('waiting', 'offered') %}
+        <form method="post" action="{{ url_for('waiting.leave', token=entry.token) }}" class="actions" data-confirm="Leave the waitlist?">
+          {{ csrf() }}<button class="button button-quiet" type="submit">Leave the waitlist</button>
+        </form>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

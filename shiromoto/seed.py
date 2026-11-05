@@ -258,6 +258,15 @@ def add_bookings(s, shop, people, today, moment):
         cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)
     s.flush()
     add_jobs(s, shop, people, live, moment)
+    # Two people on the waitlist: the timer offers them the next free time.
+    from .models import WaitlistEntry
+    for name, phone, plate_kind, wanted, days in (("Rosa Garcia", "0917 888 2301", CAR, "Aircon Cleaning", (1, 5)),
+                                                   ("Dan Cruz", "0920 777 4512", MOTO, "CVT Cleaning", (2, 4))):
+        s.add(WaitlistEntry(shop_id=shop.id, token=secrets.token_urlsafe(18), name=name, phone=phone,
+                            vehicle_kind=plate_kind, service_ids=str(services[wanted].id),
+                            first_day=today + timedelta(days=days[0]), last_day=today + timedelta(days=days[1]),
+                            created_at=moment - timedelta(hours=days[0] * 5)))
+    s.flush()
 
 
 # (name, code, stock, low at, price, cost) in pesos

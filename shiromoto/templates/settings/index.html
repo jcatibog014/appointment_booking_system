@@ -39,6 +39,55 @@
       </fieldset>
     </section>
 
+    <section class="setting" data-install-card>
+      <div class="setting-text">
+        <h2>Phone App</h2>
+        <p>Put {{ shop.name }} on your home screen. It opens like an app and can show notices.</p>
+      </div>
+      <div class="stack">
+        <button class="button" type="button" data-install-button hidden>Install the app</button>
+        <p class="small" data-install-done hidden>The app is installed on this device.</p>
+        <details class="small">
+          <summary>On an iPhone or iPad</summary>
+          <ol class="steps-list">
+            <li>Open this site in Safari.</li>
+            <li>Tap the Share button (the square with an arrow).</li>
+            <li>Tap <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</li>
+            <li>Open the app from the home screen, come back here, and turn on notifications.</li>
+          </ol>
+        </details>
+        <p class="small muted">On Android, Chrome shows Install here, or in its menu (Add to Home screen).</p>
+      </div>
+    </section>
+
+    {% if vapid_key %}
+      <section class="setting" data-push-card hidden>
+        <div class="setting-text">
+          <h2>Notifications on This Device</h2>
+          <p>{% if g.user.is_staff %}New online bookings.{% else %}When your vehicle is ready, when there's an estimate to approve, and the day before a visit.{% endif %}</p>
+        </div>
+        <div class="actions setting-account-actions">
+          <button class="button button-quiet" type="button" data-push-on>Turn on</button>
+          <button class="button button-quiet" type="button" data-push-off hidden>Turn off</button>
+          <p class="small muted" data-push-state role="status"></p>
+        </div>
+      </section>
+    {% endif %}
+
+    {% if g.user.role == 'owner' %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Email and Push</h2>
+          <p>These are set on the server (Render's environment). The README has the steps.</p>
+        </div>
+        <ul class="plain-list small">
+          <li><span class="pill {{ 'pill-booked' if email_ready else 'pill-no_show' }}">{{ 'On' if email_ready else 'Off' }}</span> Email through Gmail{% if not email_ready %}: needs MAIL_USERNAME and MAIL_PASSWORD (a Gmail app password){% endif %}</li>
+          <li><span class="pill {{ 'pill-booked' if push_ready else 'pill-no_show' }}">{{ 'On' if push_ready else 'Off' }}</span> Push to phones{% if not push_ready %}: needs the VAPID keys (flask --app shiromoto make-vapid-keys){% endif %}</li>
+          <li><span class="pill {{ 'pill-booked' if tick_ready else 'pill-no_show' }}">{{ 'On' if tick_ready else 'Off' }}</span> The 15-minute timer{% if not tick_ready %}: needs TICK_KEY and the GitHub schedule{% endif %}</li>
+        </ul>
+      </section>
+    {% endif %}
+
     <section class="setting">
       <div class="setting-text">
         <h2>Your Details</h2>

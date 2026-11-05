@@ -596,3 +596,86 @@ class EstimateLine(Base):
     @property
     def amount(self):
         return self.quantity * self.unit_price
+
+
+# ---------- Notices, push and the waitlist (stage 6) ----------
+
+EMAIL, PUSH = "email", "push"
+PENDING, SENT, FAILED, SKIPPED = "pending", "sent", "failed", "skipped"
+
+
+class Notification(Base):
+    """The outbox: one message to send, by email or push.
+
+    `dedupe_key` is UNIQUE, so a notice can't be queued twice: "the day-before
+    reminder for booking 7" is queued once even if the timer runs twice at the
+    same moment (the second INSERT fails and is ignored). The timer sends
+    pending ones and records what happened."""
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("dedupe_key"), NEVER_REUSE_IDS)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))  # "confirmed", "day_before", "ready"...
+    channel: Mapped[str] = mapped_column(String(8))
+    to: Mapped[str] = mapped_column(String(254), default="")  # an email address (push finds its own subscriptions)
+    subject: Mapped[str] = mapped_column(String(160))
+    body: Mapped[str] = mapped_column(Text)
+    link: Mapped[str] = mapped_column(String(400), default="")
+    dedupe_key: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(12), default=PENDING, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(String(300), default="")
+    send_after: Mapped[datetime] = mapped_column(DateTime)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = now_column()
+
+
+class PushSubscription(Base):
+    """A phone or browser that asked for push notices: for one booking (a guest) or
+    for a person with a login. The endpoint is the browser's own address for it."""
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("endpoint"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(600))
+    p256dh: Mapped[str] = mapped_column(String(200))
+    auth: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = now_column()
+
+
+WAITING, OFFERED, TAKEN_UP, EXPIRED, LEFT = "waiting", "offered", "booked", "expired", "left"
+WAITLIST_LABELS = {WAITING: "Waiting", OFFERED: "Offered a time", TAKEN_UP: "Booked", EXPIRED: "Ended",
+                   LEFT: "Left the list"}
+
+
+class WaitlistEntry(Base):
+    """Someone who wants a time that's full. When a time frees up between first_day and
+    last_day, the first person waiting is offered it: the time is held for them for
+    30 minutes and they get a link. Claiming an entry is a conditional UPDATE
+    (WHERE status = 'waiting'), so one entry is never offered two times at once."""
+    __tablename__ = "waitlist"
+    __table_args__ = (NEVER_REUSE_IDS,)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(48), unique=True)
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str] = mapped_column(String(40))
+    email: Mapped[str] = mapped_column(String(254), default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    vehicle_kind: Mapped[str] = mapped_column(String(8))
+    service_ids: Mapped[str] = mapped_column(String(200))
+    first_day: Mapped[date] = mapped_column(Date)
+    last_day: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(12), default=WAITING, index=True)
+    hold_token: Mapped[str] = mapped_column(String(48), default="")
+    offered_at: Mapped[datetime | None] = mapped_column(DateTime)
+    offer_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    offers: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = now_column()

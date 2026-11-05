@@ -23,6 +23,7 @@
           {{ link('desk.bookings', 'Bookings', request.endpoint == 'desk.bookings' or section == 'bookings') }}
           {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer', 'jobs.vehicle')) }}
           {{ link('jobs.parts', 'Parts', request.endpoint in ('jobs.parts', 'jobs.part')) }}
+          {{ link('waiting.desk', 'Waitlist', request.endpoint == 'waiting.desk') }}
         {% endif %}
         {{ link('public.home', 'Shop Website', section == 'public') }}
       </ul>

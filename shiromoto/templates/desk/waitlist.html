@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Waitlist - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Waitlist</h1>
+    <form method="post" class="actions">{{ csrf() }}<button class="button" type="submit">Offer free times now</button></form>
+    <p class="page-sub">The timer offers freed times every 15 minutes, oldest first. Each offer holds the time for 30 minutes.</p>
+  </div>
+  {% if rows %}
+    <section class="card table-card">
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">Joined</th><th scope="col">Name</th><th scope="col">Wants</th><th scope="col">Days</th><th scope="col" class="num">Offers</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            {% for row in rows %}
+              <tr class="{{ '' if row.status in ('waiting', 'offered') else 'is-off' }}">
+                <td>{{ row.created_at|local_moment(shop.timezone) }}</td>
+                <td><strong>{{ row.name }}</strong><br><a class="small" href="tel:{{ row.phone|replace(' ', '') }}">{{ row.phone }}</a></td>
+                <td>{{ VEHICLE_LABELS[row.vehicle_kind] }}: {{ services[row.id]|map(attribute='name')|join(' + ') }}</td>
+                <td>{{ row.first_day|day_range(row.last_day) }}</td>
+                <td class="num">{{ row.offers }}</td>
+                <td><span class="pill wait-{{ row.status }}">{{ WAITLIST_LABELS[row.status] }}</span>{% if row.status == 'offered' %} <span class="muted small">until {{ row.offer_expires_at|local_time(shop.timezone) }}</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    <div class="empty-state"><h2>Nobody Is Waiting</h2><p>Customers join from the Book page when no time suits them.</p></div>
+  {% endif %}
+{% endblock %}

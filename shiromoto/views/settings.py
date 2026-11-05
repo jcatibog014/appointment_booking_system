@@ -7,11 +7,11 @@ changing a password.
 """
 from datetime import timedelta
 
-from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
+from flask import Blueprint, abort, current_app, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import func, select
 from werkzeug.security import check_password_hash
 
-from .. import auth, db, forms, shops
+from .. import auth, db, forms, notices, shops
 from ..auth import login_required, owner_required
 from ..dates import local_today, utcnow
 from ..formatting import duration
@@ -71,7 +71,9 @@ def index():
         else:
             abort(400)
     summary = shop_summary(s) if g.user.role == OWNER else None
-    return render_template("settings/index.html", errors=errors, summary=summary), 400 if errors else 200
+    return render_template("settings/index.html", errors=errors, summary=summary, email_ready=notices.email_ready(),
+                           push_ready=notices.push_ready(),
+                           tick_ready=bool(current_app.config.get("TICK_KEY"))), 400 if errors else 200
 
 
 def shop_summary(s):

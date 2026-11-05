@@ -172,7 +172,108 @@ function setUpCountdown() {
   tick();
 }
 
+// ---------- The phone app ----------
+
+// The service worker keeps the look and an offline page, and shows push notices.
+function setUpServiceWorker() {
+  if (!("serviceWorker" in navigator)) return;
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    // Without it the site still works; it just isn't installable.
+  });
+}
+
+// "Install the app" in Settings: Chrome and Edge offer it; iPhones use Share > Add to Home Screen.
+function setUpInstall() {
+  const card = document.querySelector("[data-install-card]");
+  if (!card) return;
+  const button = card.querySelector("[data-install-button]");
+  const done = card.querySelector("[data-install-done]");
+  if (window.matchMedia("(display-mode: standalone)").matches || navigator.standalone) {
+    done.hidden = false;
+    return;
+  }
+  let offer = null;
+  window.addEventListener("beforeinstallprompt", (event) => {
+    event.preventDefault();
+    offer = event;
+    button.hidden = false;
+  });
+  button.addEventListener("click", async () => {
+    if (!offer) return;
+    offer.prompt();
+    const choice = await offer.userChoice;
+    if (choice.outcome === "accepted") {
+      button.hidden = true;
+      done.hidden = false;
+    }
+    offer = null;
+  });
+}
+
+// The server's public push key comes as base64url; the browser wants raw bytes.
+function keyBytes(text) {
+  const padded = (text + "===".slice((text.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
+}
+
+async function sendSubscription(url, body) {
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const response = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json", "X-CSRF-Token": csrf }, body: JSON.stringify(body),
+  });
+  if (!response.ok) throw new Error("The server didn't save it.");
+}
+
+// "Turn on notifications": on a booking's page (for that booking) or in Settings (for the account).
+function setUpPush() {
+  const card = document.querySelector("[data-push-card]");
+  const key = document.querySelector('meta[name="push-key"]');
+  if (!card || !key || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  const on = card.querySelector("[data-push-on]");
+  const off = card.querySelector("[data-push-off]");
+  const state = card.querySelector("[data-push-state]");
+  const ref = card.dataset.pushRef;
+  card.hidden = false;
+  const show = (subscribed, message) => {
+    on.hidden = subscribed;
+    if (off) off.hidden = !subscribed;
+    state.textContent = message || (subscribed ? "Notifications are on for this device." : "");
+  };
+  navigator.serviceWorker.ready.then((registration) => registration.pushManager.getSubscription())
+    .then((existing) => show(Boolean(existing)));
+  on.addEventListener("click", async () => {
+    try {
+      if ((await Notification.requestPermission()) !== "granted") {
+        show(false, "Notifications are blocked. Allow them in the browser's site settings.");
+        return;
+      }
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true, applicationServerKey: keyBytes(key.content),
+      });
+      await sendSubscription("/push/subscribe", { ...subscription.toJSON(), ref });
+      show(true);
+    } catch (error) {
+      show(false, "This browser couldn't turn on notifications. On an iPhone, install the app first.");
+    }
+  });
+  if (off) {
+    off.addEventListener("click", async () => {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) {
+        await sendSubscription("/push/unsubscribe", { endpoint: subscription.endpoint }).catch(() => {});
+        await subscription.unsubscribe();
+      }
+      show(false, "Notifications are off for this device.");
+    });
+  }
+}
+
 setUpTheme();
+setUpServiceWorker();
+setUpInstall();
+setUpPush();
 setUpCountdown();
 setUpToasts();
 setUpMenu();

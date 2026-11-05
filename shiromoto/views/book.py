@@ -19,7 +19,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from .. import auth, booking, db, forms, shops, slots
+from .. import auth, booking, db, forms, notices, shops, slots, waitlist
 from ..dates import parse_day, to_local, utcnow
 from ..models import ANY, ONLINE, PHONE, SOURCE_LABELS, VEHICLE_KINDS, Appointment, Hold, Service
 from .bookings import open_booking, remember
@@ -219,6 +219,8 @@ def details(token):
                 errors["plate"] = str(error)
             else:
                 session.pop("hold", None)
+                notices.safely(s, notices.booked, shop, appointment, utcnow())
+                waitlist.booked_from_offer(s, held.token)
                 if getattr(appointment, "token", None):
                     remember(appointment.ref, appointment.token)
                 flash(f"Booked! Your booking number is {appointment.ref}.")

@@ -67,6 +67,14 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - `parts.stock` also has a CHECK (>= 0). `receive` changes stock and writes a `StockMove`.
   - Photos (`photos.py`, Pillow) are re-encoded to WebP (max 1600 px, plus a thumbnail) without EXIF, and stored in the DB. `/photos/<id>` is for staff or whoever can open the booking.
   - `next_due` uses `Service.again_months`/`again_km`. `add_months` clamps the day (31 Jan + 1 month = 28/29 Feb).
+- **Notices (`notices.py`)** are queued into `notifications`, with a UNIQUE `dedupe_key` (inserted in a savepoint, so a duplicate is skipped). `send_pending` claims each row (pending → sending) before sending.
+  - Email uses `smtplib.SMTP_SSL` with a Gmail app password (`MAIL_USERNAME`/`MAIL_PASSWORD`). Push uses `pywebpush.webpush` with `VAPID_*` (`flask make-vapid-keys`). Both are looked up at call time, so tests fake them.
+  - Demo shops' notices are always `skipped`.
+  - Links in notices are `notices.booking_link` (itsdangerous, 45 days). `open_booking` accepts `?s=`.
+  - Queue notices after the action commits, with `notices.safely(...)`, so a notice problem never undoes a booking.
+- **The timer (`tick.py`):** `POST /tasks/tick` with `X-Tick-Key` (CSRF-free; 404 without `TICK_KEY`), or `flask tick`. GitHub Actions calls it every 15 min (`.github/workflows/tick.yml`, secrets `TICK_URL` and `TICK_KEY`).
+- **Waitlist (`waitlist.py`):** entries are claimed with `UPDATE ... WHERE status = 'waiting'`, then the offer is a 30-minute `booking.hold(minutes=...)`. `expire` gives unused offers back. `booked_from_offer` runs when that hold is confirmed.
+- **Phone app:** `/sw.js` is served from the root (`views/app_pages.py`). Change `VERSION` in `static/sw.js` when a cached file changes. Icons are drawn by `docs/make_icons.py` (Pillow). `/push/subscribe` takes JSON with the `X-CSRF-Token` header (the token is also in a meta tag).
 - **Booking pages:** `/b/<ref>` opens with the manage link (`?t=`; only its SHA-256 is stored, and it is remembered in `session["bookings"]`, which survives logging in), for the customer it belongs to, or for staff. Everyone else gets 404. Customers can change a booking until `cancel_cutoff_hours` before it; staff always can. `calendar_file.py` writes the .ics by hand (TZID + VTIMEZONE, escaping, 75-byte folding).
 - **The Book page (`views/book.py`)** keeps the first steps as GETs, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.

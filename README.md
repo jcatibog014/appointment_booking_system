@@ -21,6 +21,30 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
 
+## Notices, the Waitlist and the Phone App (Stage 6)
+
+**Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
+- **Email** goes through Gmail with an app password. **Push** goes to phones that turned it on.
+- Every notice goes into an **outbox** first, with a unique key. The same reminder can't be queued twice, even if the timer runs twice at the same moment.
+- Before sending, a notice is **claimed** ("pending" becomes "sending"), so two timers never send the same email twice.
+- A failed email is tried again 3 times.
+- Links in notices are **signed** by the app, so they open the customer's booking without the app keeping their secret link.
+
+**The timer.** Render's free plan has no timer. So a free **GitHub Actions** schedule (`.github/workflows/tick.yml`) calls `/tasks/tick` every 15 minutes with a secret key. Each call clears held times that ran out, makes waitlist offers, queues reminders and sends what is due.
+
+**The waitlist.** On a full day, a customer can **join the waitlist** for a range of days. When a time frees up (a cancellation, a no-show, a moved booking), the first person waiting is offered it:
+- the time is **held for 30 minutes**, so nobody else can take it, and they get a link;
+- if they don't take it, it goes to the next person (up to 3 offers each).
+
+The offer is claimed with a conditional update, so two timers never offer the same person two times.
+
+**The phone app.** The site installs like an app (a PWA):
+- **Install** in Settings on Android, or **Share → Add to Home Screen** on iPhone;
+- its own icon, it opens full screen, and an **offline** page when there's no signal;
+- **push notifications** on the phone.
+
+On iPhone, push works after installing the app (iOS 16.4 or newer).
+
 ## Jobs, Estimates and Parts (Stage 5)
 
 Check-in opens a **job**. It moves along one road, and each step is written on a timeline the customer can read:
@@ -145,7 +169,6 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 | Stage | What it adds |
 |---|---|
-| 6 | Email, reminders, waitlist, and an app for your phone |
 | 7 | Insights: busy hours, bay use, no-shows and money |
 | 8 | Demo, pictures and going online |
 
@@ -169,6 +192,8 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | ![A customer's page](docs/screenshots/customer.png) A customer | ![The Jobs board](docs/screenshots/jobs.png) Jobs board |
 | ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves |
 | ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |
+| ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist | ![The waitlist at the desk](docs/screenshots/waitlist.png) The waitlist, for staff |
+| ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | |
 
 All people in these pictures are made up. They come from Try Demo.
 

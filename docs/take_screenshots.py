@@ -61,6 +61,9 @@ PAGES = [
     ("booking.png", "garage:first", "light", DESKTOP, "Carlo Mendoza"),
     ("booking-staff.png", "today:first", "light", DESKTOP, None),
     ("garage.png", "/garage", "light", DESKTOP, "Carlo Mendoza"),
+    ("waitlist-join.png", "waitjoin:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
+    ("waitlist.png", "/desk/waitlist", "light", DESKTOP, "Mika Reyes"),
+    ("phone-app.png", "/settings", "light", PHONE, "Carlo Mendoza"),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
     ("phone-times.png", "pick:moto:CVT Cleaning", "light", PHONE, "Carlo Mendoza"),
 ]
@@ -117,6 +120,14 @@ def main(only=None):
                 if action == "hold":
                     page.locator(".time-chip").first.click()
                     page.wait_for_url("**/book/details/**")
+            elif address.startswith("waitjoin:"):
+                _, vehicle, wanted = address.split(":")
+                page.goto(f"{BASE}/book?vehicle={vehicle}")
+                page.get_by_role("checkbox", name=wanted, exact=False).first.check()
+                page.get_by_role("button", name="Show free times").click()
+                page.wait_for_url("**/book?**service=**")
+                page.get_by_role("link", name="Join the waitlist").first.click()
+                page.wait_for_url("**/book/waitlist**")
             elif address.startswith("job:"):
                 page.goto(f"{BASE}/desk/jobs")
                 page.locator(".job-card", has_text=address.split(":", 1)[1]).first.click()

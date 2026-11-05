@@ -17,7 +17,7 @@ EMPTY_PAGE_SIGNS = ["No mechanics yet", "No bays yet", "No Services Yet", "Nothi
                     "No holidays, closures or leave", "No skills set", "services yet",
                     "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle",
                     "Nothing Found", "No Customers Found", "No bookings yet.", "No parts yet",
-                    "No changes yet.", "No visits yet."]
+                    "No changes yet.", "No visits yet.", "Nobody Is Waiting"]
 
 
 def start_demo(app):
@@ -174,7 +174,7 @@ def pages_for(app, role, shop_id):
         carlo = find(app, Customer, Customer.shop_id == shop_id, Customer.name == "Carlo Mendoza")[0]
         pages += ["/desk/bookings", "/desk/customers", f"/desk/customers/{carlo.id}", "/desk/parts",
                   f"/desk/parts/{find(app, Part, Part.shop_id == shop_id)[0].id}",
-                  f"/desk/vehicles/{find(app, Vehicle, Vehicle.shop_id == shop_id)[0].id}"]
+                  f"/desk/vehicles/{find(app, Vehicle, Vehicle.shop_id == shop_id)[0].id}", "/desk/waitlist"]
     if role != "customer":
         pages += ["/desk/jobs"] + [f"/jobs/{job.id}" for job in find(app, Job, Job.shop_id == shop_id)[:3]]
     if role == "customer":

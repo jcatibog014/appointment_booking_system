@@ -201,7 +201,7 @@ def purge_holds(s, shop, now):
               .execution_options(synchronize_session=False))
 
 
-def hold(s, shop, services, vehicle_kind, day, start, now, by=None):
+def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None):
     """Keep `start` on `day` for shop.hold_minutes. Returns the Hold, or raises Taken.
     Staff (`by` is staff) may book from right now: a walk-in needs no notice."""
     notice = 0 if by is not None and by.is_staff else None
@@ -223,7 +223,7 @@ def hold(s, shop, services, vehicle_kind, day, start, now, by=None):
                         mechanic_id=option.mechanic.id, starts_at=slots.start_moment(shop, day, start),
                         ends_at=slots.start_moment(shop, day, option.end), work_minutes=need.work_minutes,
                         created_by_id=by.id if by else None, created_at=now,
-                        expires_at=now + timedelta(minutes=shop.hold_minutes))
+                        expires_at=now + timedelta(minutes=minutes or shop.hold_minutes))
             s.add(held)
             s.flush()
             add_cells(s, shop, held.starts_at, held.ends_at, bay.id, option.mechanic.id, hold=held)

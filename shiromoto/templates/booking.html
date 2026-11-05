@@ -118,6 +118,16 @@
       {% endif %}
     {% endif %}
 
+    {% if not staff_view and appointment.status in ('booked', 'checked_in') and vapid_key %}
+      <section class="card push-card" data-push-card data-push-ref="{{ appointment.ref }}" hidden>
+        <h2>Updates on This Phone</h2>
+        <p class="small">Get a notice when your vehicle is ready, when there's an estimate to approve, and the day before your visit.</p>
+        <button class="button button-quiet" type="button" data-push-on>Turn on notifications</button>
+        <button class="button button-quiet" type="button" data-push-off hidden>Turn off</button>
+        <p class="small muted" data-push-state role="status"></p>
+      </section>
+    {% endif %}
+
     {% if can_save %}
       <form method="post" action="{{ url_for('bookings.save', ref=appointment.ref) }}" class="actions">
         {{ csrf() }}
