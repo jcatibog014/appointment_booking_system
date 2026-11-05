@@ -1,0 +1,77 @@
+{# Small building blocks used by many pages. #}
+
+{% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
+
+{% macro field(name, label, value='', error=None, type='text', hint=None, attrs='') %}
+  <label class="field{% if error %} has-error{% endif %}">
+    <span class="field-label">{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</span>
+    <input type="{{ type }}" name="{{ name }}" value="{{ value if value is not none else '' }}" {{ attrs|safe }}
+           {% if error %}aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
+    {% if error %}<p class="field-error" id="{{ name }}-error">{{ error }}</p>{% endif %}
+  </label>
+{% endmacro %}
+
+{% macro textarea(name, label, value='', error=None, hint=None, rows=4, attrs='') %}
+  <label class="field{% if error %} has-error{% endif %}">
+    <span class="field-label">{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</span>
+    <textarea name="{{ name }}" rows="{{ rows }}" {{ attrs|safe }}
+              {% if error %}aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>{{ value or '' }}</textarea>
+    {% if error %}<p class="field-error" id="{{ name }}-error">{{ error }}</p>{% endif %}
+  </label>
+{% endmacro %}
+
+{# options: a list of (value, label) pairs. #}
+{% macro select(name, label, options, selected='', error=None, hint=None, attrs='') %}
+  <label class="field{% if error %} has-error{% endif %}">
+    <span class="field-label">{{ label }}{% if hint %} <span class="hint">{{ hint }}</span>{% endif %}</span>
+    <select name="{{ name }}" {{ attrs|safe }} {% if error %}aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
+      {% for value, text in options %}
+        <option value="{{ value }}"{% if value|string == selected|string %} selected{% endif %}>{{ text }}</option>
+      {% endfor %}
+    </select>
+    {% if error %}<p class="field-error" id="{{ name }}-error">{{ error }}</p>{% endif %}
+  </label>
+{% endmacro %}
+
+{# A time box for the 15-minute grid. #}
+{% macro time_input(name, value, error=None, label='') %}
+  <span class="time-cell{% if error %} has-error{% endif %}">
+    <input class="control" type="time" step="900" name="{{ name }}" value="{{ value.strftime('%H:%M') if value else '' }}"
+           aria-label="{{ label }}"{% if error %} aria-invalid="true" aria-describedby="{{ name }}-error"{% endif %}>
+    {% if error %}<span class="field-error" id="{{ name }}-error">{{ error }}</span>{% endif %}
+  </span>
+{% endmacro %}
+
+{% macro pencil_icon() %}
+  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M4 20l1-4L16 5a2 2 0 0 1 3 3L8 19z"></path>
+    <line x1="14" y1="7" x2="17" y2="10"></line>
+  </svg>
+{% endmacro %}
+
+{# The shop's mark: a hex nut on a solid tile. style.css colours the nut (--mark-nut). #}
+{% macro mark() %}
+  <svg class="mark" viewBox="0 0 32 32" width="34" height="34" aria-hidden="true">
+    <rect width="32" height="32" rx="7" fill="currentColor"></rect>
+    <path class="mark-nut" d="M16 6.5 24.2 11.25V20.75L16 25.5 7.8 20.75V11.25Z" fill="none" stroke-width="2.6" stroke-linejoin="round"></path>
+    <circle class="mark-nut" cx="16" cy="16" r="3.6" fill="none" stroke-width="2.6"></circle>
+  </svg>
+{% endmacro %}
+
+{% macro wordmark(href, name) %}
+  <a class="wordmark" href="{{ href }}">{{ mark() }}<span>{{ name }}</span></a>
+{% endmacro %}
+
+{# An empty list: a title and one sentence, never a stand-in picture. #}
+{% macro empty(title, text, button_href=None, button_text=None) %}
+  <div class="empty-state">
+    <h2>{{ title }}</h2>
+    <p>{{ text }}</p>
+    {% if button_href %}<a class="button" href="{{ button_href }}">{{ button_text }}</a>{% endif %}
+  </div>
+{% endmacro %}
+
+{# A role's pill. The name is always written, so colour is never the only sign. #}
+{% macro role_pill(role) %}<span class="pill pill-{{ role }}">{{ ROLE_LABELS[role] }}</span>{% endmacro %}
+
+{% macro back(href, text) %}<a class="back-link" href="{{ href }}">&larr; {{ text }}</a>{% endmacro %}

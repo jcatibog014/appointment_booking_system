@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, select %}
+{% block title %}Closures and Leave - {{ shop.name }}{% endblock %}
+{% macro closure_rows(rows, past=False) %}
+  <ul class="row-list">
+    {% for closure in rows %}
+      <li>
+        <div class="row-main">
+          <strong>{{ closure.starts_on|day_range(closure.ends_on) }}{% if closure.from_time %}, {{ closure.from_time|clock }} – {{ closure.to_time|clock }}{% endif %}</strong>
+          <span class="muted small">{{ closure.reason }}</span>
+        </div>
+        <span class="pill pill-{{ closure.kind }}">{% if closure.user %}{{ closure.user.name }}{% else %}{{ CLOSURE_LABELS[closure.kind] }}{% endif %}</span>
+        {% if not past %}
+          <form method="post" action="{{ url_for('settings.delete_closure', closure_id=closure.id) }}" data-confirm="Remove {{ closure.reason }}?">
+            {{ csrf() }}
+            <button class="button button-small button-quiet" type="submit">Remove</button>
+          </form>
+        {% endif %}
+      </li>
+    {% endfor %}
+  </ul>
+{% endmacro %}
+{% block content %}
+  <div class="settings settings-wide">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head">
+      <h1>Closures and Leave</h1>
+      <p class="page-sub">Nobody can book a closed shop, or a mechanic on leave. Bookings already made on those days are not moved by themselves.</p>
+    </div>
+    <div class="split">
+      <div>
+        <section class="card">
+          <div class="card-head">
+            <h2>Coming Up</h2>
+            <form method="post" action="{{ url_for('settings.add_holidays') }}" class="actions">
+              {{ csrf() }}
+              <label class="visually-hidden" for="holiday-year">Year</label>
+              <select class="control control-small" name="year" id="holiday-year">
+                <option value="{{ year }}">{{ year }}</option>
+                <option value="{{ year + 1 }}">{{ year + 1 }}</option>
+              </select>
+              <button class="button button-small button-quiet" type="submit">Add PH holidays</button>
+            </form>
+          </div>
+          {% if upcoming %}{{ closure_rows(upcoming) }}{% else %}<p class="muted">Nothing planned. The shop is open as usual.</p>{% endif %}
+          <p class="muted small">Eid'l Fitr, Eid'l Adha and Chinese New Year change every year: add them when they are announced.</p>
+        </section>
+        {% if past %}
+          <section class="card">
+            <h2>Last 30 Days</h2>
+            {{ closure_rows(past, past=True) }}
+          </section>
+        {% endif %}
+      </div>
+      <section class="card">
+        <h2>Add a Closure</h2>
+        <form method="post" class="stack">
+          {{ csrf() }}
+          {{ select('kind', 'What', [('closed', 'Shop closed'), ('holiday', 'Holiday'), ('leave', 'Leave (one person)')], values.kind or 'closed' ) }}
+          {{ select('user_id', 'Who is on leave', [('', 'Choose a person')] + staff_options, values.user_id or '', errors.user_id, hint='Only for leave') }}
+          {{ field('reason', 'Reason', values.reason, errors.reason, hint='Customers see this for a shop closure', attrs='required maxlength="120"') }}
+          <div class="form-grid">
+            {{ field('starts_on', 'First day', values.starts_on, errors.starts_on, type='date', attrs='required min="' ~ today ~ '"') }}
+            {{ field('ends_on', 'Last day', values.ends_on, errors.ends_on, type='date', hint='Empty for one day') }}
+            {{ field('from_time', 'From', values.from_time.strftime('%H:%M') if values.from_time else '', errors.from_time, type='time', hint='Only part of the day', attrs='step="900"') }}
+            {{ field('to_time', 'Until', values.to_time.strftime('%H:%M') if values.to_time else '', errors.to_time, type='time', attrs='step="900"') }}
+          </div>
+          <div class="form-actions"><button class="button" type="submit">Add closure</button></div>
+        </form>
+      </section>
+    </div>
+  </div>
+{% endblock %}

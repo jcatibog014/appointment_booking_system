@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, time_input %}
+{% block title %}Opening Hours - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings settings-wide">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head">
+      <h1>Opening Hours</h1>
+      <p class="page-sub">Times go in 15-minute steps. Nothing is booked during the break, and a job pauses over it: a 3-hour job from 10:00 with lunch 12:00 – 1:00 ends at 2:00.</p>
+    </div>
+    {% if errors %}<p class="form-error" role="alert">Some days need a fix. Look for the red notes below.</p>{% endif %}
+    <form method="post" class="card table-card" data-watch-changes>
+      {{ csrf() }}
+      <div class="table-scroll">
+        <table class="table week-table">
+          <thead>
+            <tr><th scope="col">Day</th><th scope="col">Open</th><th scope="col">Opens</th><th scope="col">Closes</th><th scope="col">Break starts</th><th scope="col">Break ends</th></tr>
+          </thead>
+          <tbody>
+            {% for day in range(7) %}
+              {% set row = week[day] %}
+              <tr>
+                <th scope="row">{{ WEEKDAYS[day] }}</th>
+                <td><label class="check"><input type="checkbox" name="open-{{ day }}" value="1"{% if row.is_open %} checked{% endif %}><span class="visually-hidden">Open on {{ WEEKDAYS[day] }}</span></label></td>
+                <td>{{ time_input('opens-' ~ day, row.opens, errors['opens-' ~ day], WEEKDAYS[day] ~ ' opens') }}</td>
+                <td>{{ time_input('closes-' ~ day, row.closes, errors['closes-' ~ day], WEEKDAYS[day] ~ ' closes') }}</td>
+                <td>{{ time_input('break_starts-' ~ day, row.break_starts, errors['break_starts-' ~ day], WEEKDAYS[day] ~ ' break starts') }}</td>
+                <td>{{ time_input('break_ends-' ~ day, row.break_ends, errors['break_ends-' ~ day], WEEKDAYS[day] ~ ' break ends') }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="form-actions card-foot"><button class="button" type="submit">Save hours</button></div>
+    </form>
+  </div>
+{% endblock %}

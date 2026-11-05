@@ -1,0 +1,43 @@
+{% from "_macros.html" import csrf, wordmark %}
+{# The staff menu only moves between pages. Preferences and Log out are in Settings
+   (and Log out in the account menu at the bottom). #}
+{% set section = request.blueprint %}
+{% macro link(endpoint, label, active) %}
+  <li><a href="{{ url_for(endpoint) }}"{% if active %} aria-current="page"{% endif %}><span>{{ label }}</span></a></li>
+{% endmacro %}
+<aside class="sidebar">
+  <div class="sidebar-top">
+    {{ wordmark(url_for('desk.today'), shop.name) }}
+    <button class="menu-button" type="button" data-menu-button aria-expanded="false" aria-controls="app-nav" hidden>
+      <span aria-hidden="true">&#9776;</span> Menu
+    </button>
+  </div>
+  <div class="sidebar-menu" id="app-nav">
+    <nav aria-label="Main">
+      <ul class="nav-links">
+        {{ link('desk.today', 'Today', section == 'desk') }}
+        {{ link('public.home', 'Shop Website', section == 'public') }}
+      </ul>
+      <ul class="nav-links nav-links-end">
+        {{ link('settings.index', 'Settings', section == 'settings') }}
+      </ul>
+    </nav>
+    <div class="sidebar-foot">
+      {# <details> opens and closes without JavaScript. app.js also closes it on an outside click. #}
+      <details class="user-menu" data-user-menu>
+        <summary>
+          <span class="avatar" aria-hidden="true">{{ g.user.name[:1]|upper }}</span>
+          <span class="user-menu-name"><span class="visually-hidden">Account menu for </span>{{ g.user.name }}
+            <span class="user-menu-role">{{ ROLE_LABELS[g.user.role] }}</span></span>
+        </summary>
+        <div class="user-menu-items">
+          <a href="{{ url_for('settings.index') }}">Settings</a>
+          <form method="post" action="{{ url_for('auth.logout') }}">
+            {{ csrf() }}
+            <button class="link-button" type="submit">Log out</button>
+          </form>
+        </div>
+      </details>
+    </div>
+  </div>
+</aside>

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}Today - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Today</h1>
+    <p class="page-sub">{{ day|long_day }} · {{ greeting }}, {{ g.user.first_name }}.</p>
+  </div>
+
+  {% set hours = plan.hours %}
+  <div class="stat-row">
+    <div class="stat card">
+      <p class="stat-label">Shop</p>
+      {% if plan.closed %}
+        <p class="stat-value">Closed</p>
+        <p class="muted small">{{ plan.shop_closures[0].reason if plan.shop_closures else 'Not an opening day' }}</p>
+      {% else %}
+        <p class="stat-value">{{ hours.opens|clock }} – {{ hours.closes|clock }}</p>
+        <p class="muted small">{% if hours.break_starts %}Lunch {{ hours.break_starts|clock }} – {{ hours.break_ends|clock }}{% else %}No break{% endif %}
+          {% for c in plan.shop_closures if c.from_time %} · Closed {{ c.from_time|clock }} – {{ c.to_time|clock }} ({{ c.reason }}){% endfor %}</p>
+      {% endif %}
+    </div>
+    <div class="stat card">
+      <p class="stat-label">Mechanics In</p>
+      <p class="stat-value">{{ working }} <span class="stat-of">of {{ plan.mechanics|length }}</span></p>
+      <p class="muted small">{{ plan.mechanics|length - working }} off today</p>
+    </div>
+    <div class="stat card">
+      <p class="stat-label">Bays in Use</p>
+      <p class="stat-value">{{ bays|length }}</p>
+      <p class="muted small">{{ bays|map(attribute='bay_type.name')|unique|list|length }} kinds of bay</p>
+    </div>
+  </div>
+
+  {% if g.user.role == 'owner' and steps_left %}
+    <section class="card">
+      <div class="card-head"><h2>Finish Setting Up</h2><span class="muted small">{{ steps|length - steps_left }} of {{ steps|length }} done</span></div>
+      <ul class="checklist">
+        {% for label, done, endpoint in steps %}
+          <li class="{{ 'is-done' if done else '' }}">
+            <span class="check-mark" aria-hidden="true">{{ '✓' if done else '' }}</span>
+            <a href="{{ url_for(endpoint) }}">{{ label }}</a>{% if done %}<span class="visually-hidden"> (done)</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Mechanics</h2>
+      <ul class="people-list">
+        {% for mechanic, starts, ends, off in plan.mechanics %}
+          <li class="{{ 'is-off' if off else '' }}">
+            <span class="avatar" aria-hidden="true">{{ mechanic.name[:1] }}</span>
+            <div class="people-main">
+              <strong>{{ mechanic.name }}</strong>
+              <span class="muted small">{{ mechanic.skills|map(attribute='name')|join(', ') or 'No skills set' }}</span>
+            </div>
+            <span class="people-side">{% if off %}<span class="pill pill-off">{{ off }}</span>{% else %}{{ starts|clock }} – {{ ends|clock }}{% endif %}</span>
+          </li>
+        {% else %}
+          <li class="muted">No mechanics yet.{% if g.user.role == 'owner' %} <a href="{{ url_for('settings.staff') }}">Invite one</a>.{% endif %}</li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <section class="card">
+      <h2>Bays</h2>
+      <ul class="bay-list">
+        {% for bay in bays %}
+          <li><strong>{{ bay.name }}</strong> <span class="muted small">{{ bay.bay_type.name }}</span></li>
+        {% else %}
+          <li class="muted">No bays yet.</li>
+        {% endfor %}
+      </ul>
+      <h3 class="subhead">Next 14 Days</h3>
+      {% if coming %}
+        <ul class="plain-list small">
+          {% for closure in coming %}
+            <li><strong>{{ closure.starts_on|day_range(closure.ends_on) }}</strong>
+              {% if closure.user %}{{ closure.user.name }} on leave{% else %}{{ CLOSURE_LABELS[closure.kind] }}{% endif %}{% if closure.from_time %}, {{ closure.from_time|clock }} – {{ closure.to_time|clock }}{% endif %}
+              <span class="muted">· {{ closure.reason }}</span></li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted small">No holidays, closures or leave.</p>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

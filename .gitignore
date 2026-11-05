@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+Thumbs.db
+.env
+# The local SQLite database (your own shop data) lives here. Never commit it.
+instance/

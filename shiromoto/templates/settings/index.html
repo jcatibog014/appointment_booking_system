@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}Settings - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings">
+    <div class="page-head"><h1>Settings</h1></div>
+
+    {% if summary %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>The Shop</h2>
+          <p>What customers can book, and when. Changes count for new bookings straight away.</p>
+        </div>
+        <ul class="setting-links">
+          {% for endpoint, title, line in (
+              ('settings.shop', 'Shop Details and Booking Rules', shop.name),
+              ('settings.hours', 'Opening Hours', summary.hours),
+              ('settings.closures', 'Closures and Leave', summary.closures),
+              ('settings.bays', 'Bays', summary.bays),
+              ('settings.services', 'Services and Prices', summary.services),
+              ('settings.staff', 'Staff', summary.staff)) %}
+            <li><a href="{{ url_for(endpoint) }}"><strong>{{ title }}</strong><span class="muted small">{{ line }}</span><span class="chevron" aria-hidden="true">&rsaquo;</span></a></li>
+          {% endfor %}
+        </ul>
+      </section>
+    {% endif %}
+
+    {# The theme lives in the browser, so this needs JavaScript. app.js shows it. #}
+    <section class="setting" data-theme-settings hidden>
+      <div class="setting-text">
+        <h2>Appearance</h2>
+        <p>Device follows your phone or computer. This choice is saved on this device only.</p>
+      </div>
+      <fieldset class="theme-choice">
+        <legend class="visually-hidden">Theme</legend>
+        <label><input type="radio" name="theme" value="system"><span>Device</span></label>
+        <label><input type="radio" name="theme" value="light"><span>Light</span></label>
+        <label><input type="radio" name="theme" value="dark"><span>Dark</span></label>
+      </fieldset>
+    </section>
+
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Your Details</h2>
+        <p>{{ ROLE_LABELS[g.user.role] }} · {{ g.user.email }}</p>
+      </div>
+      <form method="post" class="stack" data-watch-changes>
+        {{ csrf() }}
+        <input type="hidden" name="action" value="profile">
+        <div class="form-grid">
+          {{ field('name', 'Name', g.user.name, errors.name, attrs='autocomplete="name" required') }}
+          {{ field('phone', 'Mobile number', g.user.phone, errors.phone, type='tel', attrs='autocomplete="tel"') }}
+        </div>
+        <div class="form-actions"><button class="button" type="submit">Save details</button></div>
+      </form>
+    </section>
+
+    {% if g.user.role == 'mechanic' %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Your Week</h2>
+          <p>The owner sets your hours and skills. Ask them for a change.</p>
+        </div>
+        <div>
+          <p class="small"><strong>Skills:</strong> {{ g.user.skills|map(attribute='name')|join(', ') or 'None yet' }}</p>
+          {% if g.user.hours %}
+            <ul class="plain-list small">
+              {% for row in g.user.hours %}
+                <li><strong>{{ WEEKDAYS[row.weekday] }}</strong> {% if row.works %}{{ row.starts|clock }} – {{ row.ends|clock }}{% else %}<span class="muted">Day off</span>{% endif %}</li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <p class="small muted">You work whenever the shop is open.</p>
+          {% endif %}
+        </div>
+      </section>
+    {% endif %}
+
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Password</h2>
+        <p>Changing it logs you out on your other devices.</p>
+      </div>
+      <form method="post" class="stack">
+        {{ csrf() }}
+        <input type="hidden" name="action" value="password">
+        <fieldset class="stack plain-fieldset" {{ 'disabled' if g.visitor else '' }}>
+          {% if g.visitor %}<p class="muted small">The demo can't change passwords.</p>{% endif %}
+          {{ field('current_password', 'Current password', error=errors.current_password, type='password', attrs='autocomplete="current-password" required') }}
+          <div class="form-grid">
+            {{ field('new_password', 'New password', error=errors.new_password, type='password', hint='At least 8 characters', attrs='autocomplete="new-password" required') }}
+            {{ field('confirm_password', 'New password again', type='password', attrs='autocomplete="new-password" required') }}
+          </div>
+          <div class="form-actions"><button class="button" type="submit">Change password</button></div>
+        </fieldset>
+      </form>
+    </section>
+
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Log Out</h2>
+        <p>{{ 'Leaving the demo ends your sample shop on this browser.' if g.visitor else 'Log out of this device.' }}</p>
+      </div>
+      <form method="post" action="{{ url_for('auth.logout') }}" class="actions setting-account-actions">
+        {{ csrf() }}
+        <button class="button button-quiet" type="submit">Log out</button>
+      </form>
+    </section>
+  </div>
+{% endblock %}

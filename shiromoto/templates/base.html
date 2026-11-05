@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ shop.name if shop else APP_NAME }}{% endblock %}</title>
+  <meta name="description" content="Book car and motorcycle service at {{ shop.name if shop else APP_NAME }}: PMS, oil change, brakes, aircon, tires and more.">
+  <link rel="icon" href="{{ url_for('static', filename='icon.svg') }}" type="image/svg+xml">
+  <meta name="theme-color" content="#f2f1f5" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#121117" media="(prefers-color-scheme: dark)">
+  {# Before the stylesheet asks for it, so the name and headings don't jump when it arrives. #}
+  <link rel="preload" href="{{ url_for('static', filename='fonts/barlow-condensed-700.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  {# Before the page draws, so a saved dark theme never flashes white. #}
+  <script src="{{ url_for('static', filename='theme.js') }}"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</head>
+<body class="{% block body_class %}{{ 'app-layout' if g.user and g.user.is_staff and not public_page else 'public-layout' }}{% endblock %}">
+  <a class="skip-link" href="#main">Skip to content</a>
+  {% block header %}
+    {% if g.user and g.user.is_staff and not public_page %}{% include "_sidebar.html" %}{% else %}{% include "_public_header.html" %}{% endif %}
+  {% endblock %}
+
+  <main id="main" class="page {% block page_class %}{% endblock %}">
+    {% if g.visitor %}{% include "_demo_bar.html" %}{% endif %}
+    {# Messages after an action. With JavaScript they float as toasts (app.js): good news fades
+       after a few seconds, a problem ("error") stays until closed. Without it, they sit here. #}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flashes" role="status" data-flashes>
+          {% for category, message in messages %}
+            <div class="flash{% if category == 'error' %} flash-error{% endif %}" data-flash{% if category == 'error' %} data-stays{% endif %}>
+              <p>{{ message }}</p>
+              <button class="flash-close" type="button" data-flash-close aria-label="Close this message" hidden>&times;</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{% from "_macros.html" import csrf %}
+{# One thin line on every demo page: it's a sandbox, and View As changes who you are. #}
+<div class="demo-bar">
+  <p><strong>Demo shop.</strong> It's yours alone for 2 hours, so try anything.</p>
+  <form method="post" action="{{ url_for('auth.view_as') }}" class="view-as">
+    {{ csrf() }}
+    <label for="view-as-person">View as</label>
+    <select name="person" id="view-as-person" data-auto-submit>
+      {% for person in demo_people %}
+        <option value="{{ person.id }}"{% if person.id == g.user.id %} selected{% endif %}>{{ person.name }} ({{ ROLE_LABELS[person.role] }})</option>
+      {% endfor %}
+    </select>
+    <button class="button button-small button-quiet" type="submit" data-auto-submit-button>Switch</button>
+  </form>
+</div>

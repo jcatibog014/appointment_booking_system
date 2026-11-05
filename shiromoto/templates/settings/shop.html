@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, select %}
+{% block title %}Shop Details - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head"><h1>Shop Details and Booking Rules</h1></div>
+
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Details</h2>
+        <p>Shown on the shop's website, on booking emails and in calendar files.</p>
+      </div>
+      <form method="post" class="stack" data-watch-changes>
+        {{ csrf() }}
+        <input type="hidden" name="action" value="details">
+        {{ field('name', 'Shop name', shop.name, errors.name, attrs='required maxlength="80"') }}
+        {{ field('tagline', 'Tagline', shop.tagline, errors.tagline, hint='One short line under the name', attrs='maxlength="160"') }}
+        <div class="form-grid">
+          {{ field('phone', 'Phone', shop.phone, errors.phone, type='tel') }}
+          {{ field('email', 'Email', shop.email, errors.email, type='email') }}
+        </div>
+        {{ field('address', 'Address', shop.address, errors.address, attrs='maxlength="240"') }}
+        <div class="form-actions"><button class="button" type="submit">Save details</button></div>
+      </form>
+    </section>
+
+    <section class="setting">
+      <div class="setting-text">
+        <h2>Booking Rules</h2>
+        <p>Times are on the shop's clock ({{ shop.timezone.replace('_', ' ') }}). Staff can still book a walk-in at short notice.</p>
+      </div>
+      <form method="post" class="stack" data-watch-changes>
+        {{ csrf() }}
+        <input type="hidden" name="action" value="rules">
+        <div class="form-grid">
+          {{ select('min_notice_minutes', 'Earliest booking', [(0, 'Any time today'), (60, '1 hour from now'), (120, '2 hours from now'), (240, '4 hours from now'), (1440, 'Tomorrow at the earliest (24 h)')], shop.min_notice_minutes, errors.min_notice_minutes) }}
+          {{ select('max_days_ahead', 'Latest booking', [(7, '1 week ahead'), (14, '2 weeks ahead'), (30, '30 days ahead'), (60, '60 days ahead'), (90, '90 days ahead')], shop.max_days_ahead, errors.max_days_ahead) }}
+          {{ select('cancel_cutoff_hours', 'Customers can cancel online', [(0, 'Up to the start time'), (2, 'Until 2 hours before'), (12, 'Until 12 hours before'), (24, 'Until 24 hours before'), (48, 'Until 48 hours before')], shop.cancel_cutoff_hours, errors.cancel_cutoff_hours) }}
+          {{ select('hold_minutes', 'Keep a chosen time for', [(3, '3 minutes'), (5, '5 minutes'), (10, '10 minutes'), (15, '15 minutes')], shop.hold_minutes, errors.hold_minutes, hint='While the customer fills in their details') }}
+        </div>
+        <div class="form-actions"><button class="button" type="submit">Save rules</button></div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

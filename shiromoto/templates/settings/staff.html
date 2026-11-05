@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, role_pill, select %}
+{% block title %}Staff - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings settings-wide">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head">
+      <h1>Staff</h1>
+      <p class="page-sub">Service advisors run the front desk. Mechanics get jobs that match their skills and hours.</p>
+    </div>
+    <div class="split">
+      <section class="card">
+        <h2>People</h2>
+        <ul class="people-list">
+          {% for person in people %}
+            <li class="{{ '' if person.is_active else 'is-off' }}">
+              <span class="avatar" aria-hidden="true">{{ person.name[:1] }}</span>
+              <div class="people-main">
+                <a class="row-title" href="{{ url_for('settings.person', user_id=person.id) }}">{{ person.name }}</a>
+                <span class="muted small">{{ person.email }}{% if person.role == 'mechanic' %} · {{ person.skills|map(attribute='name')|join(', ') or 'No skills set' }}{% endif %}</span>
+              </div>
+              <span class="people-side">{% if not person.is_active %}<span class="pill pill-off">Can't log in</span> {% endif %}{{ role_pill(person.role) }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      </section>
+      <div>
+        <section class="card">
+          <h2>Invite Someone</h2>
+          {% if new_link %}
+            <div class="new-link">
+              <p class="small"><strong>Send this link</strong> by text or chat. It works once, for 7 days, and is shown only now.</p>
+              <input class="copy-line" value="{{ new_link }}" readonly data-copy-text aria-label="Invite link">
+              <button class="button button-small button-quiet" type="button" data-copy-button hidden>Copy link</button>
+            </div>
+          {% endif %}
+          <form method="post" class="stack">
+            {{ csrf() }}
+            {{ field('name', 'Their name', '', errors.name, attrs='required maxlength="80"') }}
+            {{ select('role', 'Role', [('mechanic', 'Mechanic'), ('advisor', 'Service advisor'), ('owner', 'Owner (everything)')], 'mechanic', errors.role) }}
+            <div class="form-actions"><button class="button" type="submit">Make invite link</button></div>
+          </form>
+        </section>
+        {% if invites %}
+          <section class="card">
+            <h2>Waiting to Join</h2>
+            <ul class="row-list">
+              {% for invite in invites %}
+                <li>
+                  <div class="row-main"><strong>{{ invite.name }}</strong><span class="muted small">{{ ROLE_LABELS[invite.role] }} · link works until {{ invite.expires_at|local_moment(shop.timezone) }}</span></div>
+                  <form method="post" action="{{ url_for('settings.cancel_invite', invite_id=invite.id) }}">
+                    {{ csrf() }}
+                    <button class="button button-small button-quiet" type="submit">Cancel</button>
+                  </form>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

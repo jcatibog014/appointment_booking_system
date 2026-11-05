@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, empty, pencil_icon %}
+{% block title %}Services and Prices - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings settings-wide">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head">
+      <h1>Services and Prices</h1>
+      <a class="button" href="{{ url_for('settings.new_service') }}">Add service</a>
+      <p class="page-sub">The time is working time: the bay and the mechanic are busy for it, plus the clean-up after.</p>
+    </div>
+    {% for category, services in groups.items() %}
+      <section class="card table-card">
+        <h2 class="table-title">{{ category }}</h2>
+        <div class="table-scroll">
+          <table class="table">
+            <thead><tr><th scope="col">Service</th><th scope="col">For</th><th scope="col">Time</th><th scope="col">Needs</th><th scope="col" class="num">From</th><th scope="col"><span class="visually-hidden">Edit</span></th></tr></thead>
+            <tbody>
+              {% for service in services %}
+                <tr class="{{ '' if service.is_active else 'is-off' }}" data-href="{{ url_for('settings.edit_service', service_id=service.id) }}">
+                  <td><a class="row-title" href="{{ url_for('settings.edit_service', service_id=service.id) }}">{{ service.name }}</a>{% if not service.is_active %} <span class="pill pill-off">Hidden</span>{% endif %}</td>
+                  <td><span class="vehicle-tag vehicle-{{ service.vehicle_kind }}">{{ VEHICLE_LABELS[service.vehicle_kind] }}</span></td>
+                  <td>{{ service.work_minutes|duration }}{% if service.buffer_minutes %} <span class="muted small">+ {{ service.buffer_minutes }} min clean-up</span>{% endif %}</td>
+                  <td>{{ service.bay_type.name }}{% if service.skill %} <span class="muted small">· {{ service.skill.name }}</span>{% endif %}</td>
+                  <td class="num">{{ service.price_from|peso }}</td>
+                  <td class="num"><a class="icon-link" href="{{ url_for('settings.edit_service', service_id=service.id) }}" aria-label="Edit {{ service.name }}">{{ pencil_icon() }}</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    {% else %}
+      {{ empty('No Services Yet', 'Add what customers can book, with its time and starting price.', url_for('settings.new_service'), 'Add service') }}
+    {% endfor %}
+  </div>
+{% endblock %}
