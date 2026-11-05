@@ -567,6 +567,7 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .day-number { font-family: var(--headline); font-size: 1.25rem; font-weight: 700; }
 .day-count { font-size: .8rem; color: var(--ok-ink); font-weight: 600; }
 .day-pill.is-full .day-count { color: var(--ink-soft); font-weight: 400; }
+@media (max-width: 47.99rem) { .day-count-more { display: none; } }  /* "28 slots", not "28 slots open", in a phone's narrow day */
 .day-pill.is-full .day-number { color: var(--ink-soft); }
 .day-pill.is-picked { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .day-pill.is-picked .day-name, .day-pill.is-picked .day-count, .day-pill.is-picked .day-number { color: var(--on-accent); }

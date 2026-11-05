@@ -42,7 +42,7 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - **Opening hours:** each day of the week, with a lunch break. Times use 15-minute steps.
 - **Closures and leave:** shop closures, part-day closures (for example 1:00 to 5:00 PM for training), and a mechanic's leave. **Add PH holidays** adds the Philippine holidays for a year. Holy Week is worked out for each year, because Easter moves.
 - **Bays:** add, rename, or take a bay out of use. Add new kinds of bay.
-- **Services and prices:** time, clean-up, bay, skill and price. Prices are saved as whole centavos, never as decimals.
+- **Services and prices:** time, clean-up, bay, skill and price. Prices are saved as whole centavos, never as decimals. Customers see each price as an estimate ("from ₱3,500"). The final price comes from the estimate they approve after the check.
 - **Staff:** invite a service advisor or mechanic with a one-time link, change roles, set skills and working hours, and switch off a login.
 
 ## How Free Times Are Found

@@ -211,7 +211,7 @@ def test_the_demo_shows_free_times_with_mechanics_and_bays(app, demo):
     customer = person(app, visitor(demo).shop_id, "customer")
     view_as(demo, customer)
     page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
-    assert "ready about" in page and "Free bays" not in page
+    assert "Ready around" in page and "Free bays" not in page
 
 
 def test_the_demo_customer_has_an_estimate_to_approve(app, demo):

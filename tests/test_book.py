@@ -38,10 +38,19 @@ def test_times_show_once_there_is_a_mechanic(app, client, shop_id):
     for n in range(14):
         day = tomorrow + timedelta(days=n)
         page = client.get(f"/book?vehicle=car&service={oil}&day={day}").get_data(as_text=True)
-        if "ready about" in page:
+        if "Ready around" in page:
             break
-    assert "ready about" in page and "8:00 AM" in page
+    assert "Ready around" in page and "8:00 AM" in page
     assert "Jun" not in page  # customers don't see who or which bay
+    # Each day says how many start times are open, in words a customer reads easily.
+    assert ' slots<span class="day-count-more"> open</span>' in page and " times<" not in page
+    assert "Estimated price" in page
+
+
+def test_prices_are_called_estimates(app, client, shop_id):
+    services = client.get("/book?vehicle=car").get_data(as_text=True)
+    assert "Prices are estimates." in services and "ask you before doing any extra work" in services
+    assert "Prices are estimates that start from the amount shown." in client.get("/").get_data(as_text=True)
 
 
 def test_staff_see_who_and_which_bay(app, shop_id, owner_id):
@@ -70,7 +79,7 @@ def test_odd_addresses_dont_break_it(app, client, shop_id):
     assert client.get("/book?vehicle=truck").status_code == 200  # back to step one
     # A motorcycle service on a car is dropped, which leaves nothing chosen: step two.
     page = client.get(f"/book?vehicle=car&service={cvt}&service=abc&service=99999").get_data(as_text=True)
-    assert "Show free times" in page
+    assert "Choose an available slot" in page
     oil = service_id(app, shop_id, "Car Oil Change")
     for bad in ("day=not-a-day", "day=1999-01-01", "from=2999-01-01"):
         assert client.get(f"/book?vehicle=car&service={oil}&{bad}").status_code == 200

@@ -29,7 +29,7 @@
       </div>
       <dl class="detail-list">
         <div><dt>Services</dt><dd>{{ appointment.lines|map(attribute='name')|join(' + ') }}</dd></div>
-        <div><dt>Price</dt><dd>from {{ appointment.price_from|peso }} <span class="muted small">(we tell you the full price before any extra work)</span></dd></div>
+        <div><dt>Estimated price</dt><dd>from {{ appointment.price_from|peso }} <span class="muted small">(the final price depends on what we find, and we ask you before any extra work)</span></dd></div>
         <div><dt>Vehicle</dt><dd>{{ VEHICLE_LABELS[appointment.vehicle.kind] }} · {{ appointment.vehicle.label }}</dd></div>
         {% if staff_view %}
           <div><dt>Mechanic and bay</dt><dd>{{ appointment.mechanic.name }} · {{ appointment.bay.name }}</dd></div>

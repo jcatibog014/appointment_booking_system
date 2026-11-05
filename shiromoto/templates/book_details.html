@@ -12,7 +12,7 @@
       <div>
         <p class="kicker">Your time</p>
         <p class="held-when">{{ day|long_day }}, {{ start|clock }}</p>
-        <p class="muted small">{{ held.services|map(attribute='name')|join(' + ') }} · ready about {{ ready|clock }}{% if staff_view %} · {{ held.mechanic.name }} · {{ held.bay.name }}{% endif %}</p>
+        <p class="muted small">{{ held.services|map(attribute='name')|join(' + ') }} · ready around {{ ready|clock }} · estimate from {{ held.services|sum(attribute='price_from')|peso }}{% if staff_view %} · {{ held.mechanic.name }} · {{ held.bay.name }}{% endif %}</p>
       </div>
       <p class="hold-timer" data-countdown="{{ expires_in }}" role="timer" aria-live="off">
         Kept for you for <strong data-countdown-text>{{ (expires_in // 60) }}:{{ '%02d' % (expires_in % 60) }}</strong>

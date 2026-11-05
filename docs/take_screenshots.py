@@ -29,7 +29,7 @@ PHONE = {"width": 390, "height": 844}
 
 # (file name, address, theme, screen size, who: a demo person's name for View As, or None for the owner).
 # {mechanic} is Jun dela Cruz's staff page. "pick:car:Car PMS" ticks services on the Book page
-# and presses "Show free times"; "hold:..." does the same, then presses the first time. "garage:first" opens
+# and presses "Choose an available slot"; "hold:..." does the same, then presses the first time. "garage:first" opens
 # the first booking in My Garage.
 PAGES = [
     ("home.png", "/", "light", DESKTOP, None),
@@ -117,7 +117,7 @@ def main(only=None):
                 page.goto(f"{BASE}/book?vehicle={vehicle}")
                 for service in names.split("|"):
                     page.get_by_role("checkbox", name=service, exact=False).first.check()
-                page.get_by_role("button", name="Show free times").click()
+                page.get_by_role("button", name="Choose an available slot").click()
                 page.wait_for_url("**/book?**service=**")
                 if action == "hold":
                     page.locator(".time-chip").first.click()
@@ -126,7 +126,7 @@ def main(only=None):
                 _, vehicle, wanted = address.split(":")
                 page.goto(f"{BASE}/book?vehicle={vehicle}")
                 page.get_by_role("checkbox", name=wanted, exact=False).first.check()
-                page.get_by_role("button", name="Show free times").click()
+                page.get_by_role("button", name="Choose an available slot").click()
                 page.wait_for_url("**/book?**service=**")
                 page.get_by_role("link", name="Join the waitlist").first.click()
                 page.wait_for_url("**/book/waitlist**")
