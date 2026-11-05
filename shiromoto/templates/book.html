@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf %}
+{% from "_macros.html" import csrf, service_price, textarea, visit_price %}
 {% set title = ('Move Booking ' ~ moving.ref) if moving else ('Free Times' if staff_view else 'Book a Service') %}
 {% block title %}{{ title }} - {{ shop.name }}{% endblock %}
 {% block page_class %}book{% endblock %}
@@ -42,8 +42,14 @@
             <label class="service-pick">
               <input type="checkbox" name="service" value="{{ service.id }}"{% if service.id in chosen_ids %} checked{% endif %}>
               <span class="service-pick-text"><strong>{{ service.name }}</strong><span class="muted small">{{ service.description }}</span></span>
-              <span class="service-pick-figure"><span class="price">from {{ service.price_from|peso }}</span><span class="muted small">about {{ service.work_minutes|duration }}</span></span>
+              <span class="service-pick-figure"><span class="price">{{ service_price(service) }}</span><span class="muted small">{{ 'we book ' if service.is_other }}about {{ service.work_minutes|duration }}{{ ' to check it' if service.is_other }}</span></span>
             </label>
+            {% if service.is_other %}
+              <div class="other-request">
+                {{ textarea('other', 'What do you need?', other, other_error, hint='Like "the horn doesn\'t work" or "change the headlight bulb". Writing here chooses this service.', rows=2, attrs='maxlength="400"') }}
+                <p class="muted small">We check it after you book, then send you the price. You confirm it or decline it before we do the work.</p>
+              </div>
+            {% endif %}
           {% endfor %}
         </fieldset>
       {% else %}
@@ -57,11 +63,12 @@
       <div class="visit-lines">
         <span class="vehicle-tag vehicle-{{ vehicle }}">{{ VEHICLE_LABELS[vehicle] }}</span>
         <ul class="visit-services">{% for service in chosen %}<li>{{ service.name }}</li>{% endfor %}</ul>
+        {% if wants_other and other %}<p class="visit-request small"><span class="muted">You asked for:</span> “{{ other }}”</p>{% endif %}
       </div>
       {% if need %}
         <dl class="facts">
           <div><dt>Work time</dt><dd>about {{ need.work_minutes|duration }}</dd></div>
-          <div><dt>Estimated price</dt><dd>from {{ price_from|peso }}</dd></div>
+          <div><dt>Estimated price</dt><dd>{{ visit_price(price_from, wants_other) }}</dd></div>
           {% if staff_view %}<div><dt>Needs</dt><dd>{{ need.bay_type_name }}{% if need.skill_names %} · {{ need.skill_names|join(', ') }}{% endif %}{% if need.buffer_minutes %} · {{ need.buffer_minutes }} min clean-up{% endif %}</dd></div>{% endif %}
         </dl>
       {% endif %}
@@ -95,7 +102,7 @@
         <h2>{{ picked.day|long_day }}</h2>
         {% if not picked.count %}
           <p class="no-times">{{ picked.reason }}</p>
-          <p class="muted small">Try another day above{% if not staff_view and not moving %}, or <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat()) }}">join the waitlist</a>: we'll keep the next free time for you{% endif %}.</p>
+          <p class="muted small">Try another day above{% if not staff_view and not moving %}, or <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat(), other=other if wants_other else none) }}">join the waitlist</a>: we'll keep the next free time for you{% endif %}.</p>
         {% else %}
           {# One form for every time on the day: each time is its own button (name="start").
              Moving goes to a confirm page (GET); a new booking holds the time (POST). #}
@@ -108,6 +115,7 @@
               {{ csrf() }}
               <input type="hidden" name="vehicle" value="{{ vehicle }}">
               {% for service in chosen %}<input type="hidden" name="service" value="{{ service.id }}">{% endfor %}
+              {% if wants_other %}<input type="hidden" name="other" value="{{ other }}">{% endif %}
               <input type="hidden" name="day" value="{{ picked.day.isoformat() }}">
             </form>
           {% endif %}
@@ -140,7 +148,7 @@
           {% endfor %}
           {% if not staff_view and not moving %}
             <p class="call-note">Pick a time and it's kept for you for {{ shop.hold_minutes }} minutes while you fill in your details.
-              No time that suits you? <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat()) }}">Join the waitlist</a>.</p>
+              No time that suits you? <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat(), other=other if wants_other else none) }}">Join the waitlist</a>.</p>
           {% endif %}
         {% endif %}
       </section>

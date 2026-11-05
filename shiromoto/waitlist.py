@@ -31,9 +31,11 @@ def services_of(s, entry):
                                            Service.is_active.is_(True)).order_by(Service.position)).all()
 
 
-def join(s, shop, name, phone, email, vehicle_kind, services, first_day, last_day, now, user=None):
+def join(s, shop, name, phone, email, vehicle_kind, services, first_day, last_day, now, user=None, request_text=""):
     if not services:
         raise booking.BookingError("Choose at least one service.")
+    if any(sv.is_other for sv in services) and not request_text.strip():
+        raise booking.BookingError(booking.OTHER_NEEDS_TEXT)
     if last_day < first_day:
         raise booking.BookingError("The last day can't be before the first day.")
     today, furthest = slots.bookable_days(shop, now)
@@ -46,6 +48,7 @@ def join(s, shop, name, phone, email, vehicle_kind, services, first_day, last_da
     entry = WaitlistEntry(shop_id=shop.id, token=secrets.token_urlsafe(18), name=name, phone=phone, email=email,
                           user_id=user.id if user else None, vehicle_kind=vehicle_kind,
                           service_ids=",".join(str(sv.id) for sv in services), first_day=first_day,
+                          request_text=request_text.strip()[:booking.REQUEST_MAX],
                           last_day=last_day, status=WAITING, created_at=now)
     s.add(entry)
     s.commit()
@@ -80,7 +83,7 @@ def offer(s, shop, entry, now):
         return False  # someone else is already offering this entry a time
     try:
         held = booking.hold(s, shop, services, entry.vehicle_kind, found[0], found[1], now,
-                            minutes=OFFER_HOLD_MINUTES)
+                            minutes=OFFER_HOLD_MINUTES, request_text=entry.request_text)
     except booking.BookingError:
         s.execute(update(WaitlistEntry).where(WaitlistEntry.id == entry.id).values(status=WAITING, offered_at=None))
         s.commit()

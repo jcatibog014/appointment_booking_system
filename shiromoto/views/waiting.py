@@ -8,7 +8,7 @@ from .. import auth, booking, db, forms, shops, slots, waitlist
 from ..auth import roles_required
 from ..dates import parse_day, utcnow
 from ..models import ADVISOR, LEFT, OFFERED, OWNER, VEHICLE_KINDS, WAITING, WaitlistEntry
-from .book import chosen_services, ids_from
+from .book import chosen_services, ids_from, other_text
 
 bp = Blueprint("waiting", __name__)
 
@@ -24,6 +24,7 @@ def join():
     services = chosen_services(s, shop, vehicle, ids_from(source.getlist("service")))
     if not services:
         return redirect(url_for("book.index", vehicle=vehicle))
+    other = other_text(source) if any(sv.is_other for sv in services) else ""
     first, last = slots.bookable_days(shop, utcnow())
     wanted = parse_day(source.get("day")) or first
     values = {"name": "", "phone": "", "email": "", "first_day": wanted, "last_day": min(wanted + timedelta(days=6),
@@ -45,13 +46,15 @@ def join():
             try:
                 entry = waitlist.join(s, shop, values["name"], values["phone"], values["email"], vehicle, services,
                                       values["first_day"], values["last_day"], utcnow(),
-                                      g.user if g.user is not None and g.user.role == "customer" else None)
+                                      g.user if g.user is not None and g.user.role == "customer" else None,
+                                      request_text=other)
             except booking.BookingError as error:
                 errors["last_day"] = str(error)
             else:
                 flash("You're on the waitlist. When a time opens up, we keep it for you and send you a link.")
                 return redirect(url_for("waiting.show", token=entry.token))
     return render_template("waitlist_join.html", vehicle=vehicle, services=services, values=values, errors=errors,
+                           other=other,
                            first=first, last=last, public_page=True), 400 if errors else 200
 
 

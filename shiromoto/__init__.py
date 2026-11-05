@@ -75,8 +75,8 @@ def create_app(test_config=None):
         raise RuntimeError("Set the DATABASE_URL environment variable on Render (Neon's connection string).")
 
     from . import auth, booking, db, formatting, shops, tick
-    from .models import (CHECK_LABELS, CLOSURE_LABELS, JOB_LABELS, LINE_LABELS, ROLE_LABELS, SOURCE_LABELS,
-                         STATUS_LABELS, VEHICLE_LABELS, WAITLIST_LABELS, WEEKDAYS)
+    from .models import (CHECK_LABELS, CLOSURE_LABELS, JOB_LABELS, LINE_LABELS, QUOTE_LABELS, ROLE_LABELS,
+                         SOURCE_LABELS, STATUS_LABELS, VEHICLE_LABELS, WAITLIST_LABELS, WEEKDAYS)
     from .views import app_pages, book, bookings, desk, garage, jobs, public, settings, waiting
 
     db.init_app(app)
@@ -93,7 +93,7 @@ def create_app(test_config=None):
                                  STATUS_LABELS=STATUS_LABELS, SOURCE_LABELS=SOURCE_LABELS,
                                  CHECK_IN_EARLY=booking.CHECK_IN_EARLY, NO_SHOW_GRACE=booking.NO_SHOW_GRACE,
                                  JOB_LABELS=JOB_LABELS, LINE_LABELS=LINE_LABELS, CHECK_LABELS=CHECK_LABELS,
-                                 WAITLIST_LABELS=WAITLIST_LABELS)
+                                 WAITLIST_LABELS=WAITLIST_LABELS, QUOTE_LABELS=QUOTE_LABELS)
 
     @app.context_processor
     def shop_and_demo():

@@ -22,6 +22,8 @@ from .models import ADVISOR, CAR, CLOSED, CUSTOMER, LEAVE, MECHANIC, MOTO, OWNER
 BAY_TYPES = [("Car lift", CAR), ("Car bay", CAR), ("Alignment bay", CAR), ("Motorcycle stand", MOTO)]
 SKILLS = ["Engine", "Brakes", "Electrical", "Aircon", "Tires", "Motorcycle"]
 
+OTHER_TEXT = "Not on the list? Tell us what you need. We check it, send you the price, and you decide."
+
 # (name, category, vehicle, work minutes, buffer minutes, bay type, skill, price in pesos, description)
 SERVICES = [
     ("Car PMS", "Maintenance", CAR, 180, 15, "Car lift", "Engine", 3500,
@@ -52,7 +54,11 @@ SERVICES = [
      "One tire mounted and checked. Tires are priced separately."),
     ("Motorcycle Electrical Check", "Diagnostics", MOTO, 60, 0, "Motorcycle stand", "Electrical", 600,
      "Lights, horn, charging and starter checks, with a written list of what we found."),
+    # The Other Service (quotes.py): the customer writes what they need; the price comes after the booking.
+    ("Other Car Service", "Other", CAR, 60, 0, "Car lift", None, 0, OTHER_TEXT),
+    ("Other Motorcycle Service", "Other", MOTO, 60, 0, "Motorcycle stand", None, 0, OTHER_TEXT),
 ]
+OTHER = {"Other Car Service", "Other Motorcycle Service"}
 
 
 # Do it again after (months, km), whichever comes first: for the "next PMS due" reminder.
@@ -70,7 +76,8 @@ def add_catalog(s, shop):
         s.add(Service(shop_id=shop.id, name=name, category=category, vehicle_kind=kind, work_minutes=work,
                       buffer_minutes=buffer, bay_type_id=bay_types[bay_type].id,
                       skill_id=skills[skill].id if skill else None, price_from=pesos * 100, description=text,
-                      position=position, again_months=AGAIN.get(name, (0, 0))[0], again_km=AGAIN.get(name, (0, 0))[1]))
+                      position=position, again_months=AGAIN.get(name, (0, 0))[0], again_km=AGAIN.get(name, (0, 0))[1],
+                      is_other=name in OTHER))
     return bay_types, skills
 
 
@@ -177,7 +184,6 @@ BOOKINGS = [
     ("Ben Tan", "NCE 1188", ["Brake Service"], 0, (13, 0), "phone", "Squeaking when braking."),
     ("Carlo Mendoza", "NAB 4821", ["Car Oil Change"], 1, (10, 0), "online", ""),
     ("Mark Aquino", "ZXA 7745", ["Aircon Cleaning"], 2, (8, 30), "phone", "Aircon smells musty."),
-    ("Carlo Mendoza", "123 QWE", ["Motorcycle PMS"], 3, (10, 0), "online", ""),
     ("Liza Ramos", "DAF 9022", ["Wheel Alignment"], 5, (14, 0), "online", "Pulls to the left."),
     ("Ben Tan", "NCE 1188", ["Engine Diagnostics"], 6, (9, 0), "phone", "Check engine light is on."),
 ]
@@ -197,7 +203,7 @@ def add_bookings(s, shop, people, today, moment):
     with the real slot finder so they never overlap. A day the shop is closed moves
     the booking to the next open day."""
     from . import booking
-    from .models import CANCELLED, CHECKED_IN, NO_SHOW, BookedSlot, Customer, Service, Vehicle
+    from .models import CANCELLED, CHECKED_IN, NO_SHOW, PRICED, BookedSlot, Customer, Service, Vehicle
 
     def arrived(appointment, km):
         appointment.status, appointment.mileage_in = CHECKED_IN, km
@@ -221,13 +227,13 @@ def add_bookings(s, shop, people, today, moment):
             vehicles[plate] = vehicle
     s.flush()
 
-    def book(name, plate, names, offset, start, source="online", notes="", status="booked"):
+    def book(name, plate, names, offset, start, source="online", notes="", status="booked", request_text=""):
         # A closed day moves the booking to the next open day (or, in the past, the one before).
         step = -1 if offset < 0 else 1
         for extra in range(10):
             placed = booking.place(s, shop, [services[n] for n in names], vehicles[plate], customers[name],
                                    today + timedelta(days=offset + step * extra), start[0] * 60 + start[1], moment,
-                                   source=source, notes=notes, status=status)
+                                   source=source, notes=notes, status=status, request_text=request_text)
             if placed is not None:
                 return placed
         return None
@@ -238,6 +244,16 @@ def add_bookings(s, shop, people, today, moment):
         if placed is not None and placed.starts_at <= moment:  # today's that have started are here already
             arrived(placed, km_on(plate, 0))
             live[plate] = placed
+    # The Other Service: Carlo asked for something that isn't on the list, and the shop sent
+    # a price (View As Carlo: confirm or decline it). Joy's request still needs a price (Today).
+    asked = book("Carlo Mendoza", "123 QWE", ["Motorcycle PMS", "Other Motorcycle Service"], 3, (10, 0),
+                 request_text="Rattle from the front fork over bumps.")
+    if asked is not None:
+        asked.quote_status, asked.quote_price = PRICED, 85000
+        asked.quote_note = "Front fork oil and new seals. Your booking time stays the same."
+        asked.quoted_by, asked.quoted_at = people["mika"].name, moment - timedelta(hours=2)
+    book("Joy Villanueva", "456 RTY", ["Other Motorcycle Service"], 2, (13, 0),
+         request_text="The horn stopped working, and the turn signals blink too fast.")
     # Carlo's car came in on the last open day and is still here, waiting for his
     # approval: the customer's View As shows an estimate to approve.
     waiting = book("Carlo Mendoza", "NAB 4821", ["Brake Service"], -1, (13, 0), source="online",

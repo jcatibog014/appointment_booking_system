@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import back, csrf, field, select, textarea %}
+{% from "_macros.html" import back, csrf, field, select, textarea, visit_price %}
 {% from "_job.html" import checklist_view, estimate, events, job_pill, photo_grid, progress with context %}
 {% block title %}Job {{ appointment.vehicle.plate }} - {{ shop.name }}{% endblock %}
 {% block content %}
@@ -25,7 +25,7 @@
         </div>
       </form>
     {% endif %}
-    <p class="muted small">Services booked: {{ appointment.lines|map(attribute='name')|join(' + ') }} (from {{ appointment.price_from|peso }}).{% if appointment.notes %} Customer's note: “{{ appointment.notes }}”{% endif %}</p>
+    <p class="muted small">Services booked: {{ appointment.lines|map(attribute='name')|join(' + ') }} ({{ visit_price(appointment.price_from, appointment.price_open) }}).{% if appointment.request_text %} Other service: “{{ appointment.request_text }}” ({{ QUOTE_LABELS[appointment.quote_status]|lower }}{% if appointment.quote_price %}, {{ appointment.quote_price|peso }}{% endif %}).{% endif %}{% if appointment.notes %} Customer's note: “{{ appointment.notes }}”{% endif %}</p>
   </section>
 
   <section class="card" id="estimate">

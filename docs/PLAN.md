@@ -103,6 +103,10 @@ The owner is made with `flask create-owner`. Staff join by an invite link. Custo
 7. **Insights.** Bookings per day, a busiest-hours heatmap, bay use %, no-show and cancel rates with reasons, and revenue by service and by mechanic. Colours are checked with the dataviz validator.
 8. **Demo, README and deploy.** Fill a realistic Manila week of sample data so every demo page has examples (`tests/test_demo.py`), app icons, README screenshots (`docs/take_screenshots.py`, `tests/test_readme.py`), `render.yaml` (`shiromoto-garage`, with `upgrade-db` before gunicorn), and step-by-step deploy notes for the owner.
 
+After the stages:
+- **Clearer booking words** (PR #5): "slots open", "Choose an available slot", and prices shown as estimates.
+- **The Other Service** (`quotes.py`, migration 0006): the customer writes what they need and books a time; staff send the price; the customer confirms or declines it. The answer is a conditional UPDATE on the price the customer saw, and declining shortens or cancels the booking in the same transaction.
+
 Each stage adds `docs/PLAN.md` progress, tests, and sample data for its own features. Each PR retakes the screenshots of pages it changed.
 
 ## Verification (every stage)

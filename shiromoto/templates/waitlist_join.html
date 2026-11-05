@@ -11,12 +11,14 @@
       <div class="visit-lines">
         <span class="vehicle-tag vehicle-{{ vehicle }}">{{ VEHICLE_LABELS[vehicle] }}</span>
         <ul class="visit-services">{% for service in services %}<li>{{ service.name }}</li>{% endfor %}</ul>
+        {% if other %}<p class="visit-request small"><span class="muted">You asked for:</span> “{{ other }}”</p>{% endif %}
       </div>
     </section>
     <form method="post" class="card stack">
       {{ csrf() }}
       <input type="hidden" name="vehicle" value="{{ vehicle }}">
       {% for service in services %}<input type="hidden" name="service" value="{{ service.id }}">{% endfor %}
+      {% if other %}<input type="hidden" name="other" value="{{ other }}">{% endif %}
       <div class="form-grid">
         {{ field('first_day', 'From', values.first_day, errors.first_day, type='date', attrs='required min="' ~ first ~ '" max="' ~ last ~ '"') }}
         {{ field('last_day', 'Until', values.last_day, errors.last_day, type='date', attrs='required min="' ~ first ~ '" max="' ~ last ~ '"') }}

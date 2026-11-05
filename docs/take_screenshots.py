@@ -30,7 +30,8 @@ PHONE = {"width": 390, "height": 844}
 # (file name, address, theme, screen size, who: a demo person's name for View As, or None for the owner).
 # {mechanic} is Jun dela Cruz's staff page. "pick:car:Car PMS" ticks services on the Book page
 # and presses "Choose an available slot"; "hold:..." does the same, then presses the first time. "garage:first" opens
-# the first booking in My Garage.
+# the first booking in My Garage. "other:moto:text" writes text in the Other Service's box;
+# "price:" opens Carlo's booking with a price to confirm; "toprice:" opens a request the desk must price.
 PAGES = [
     ("home.png", "/", "light", DESKTOP, None),
     ("today.png", "/desk", "light", DESKTOP, None),
@@ -64,6 +65,11 @@ PAGES = [
     ("booking-staff.png", "today:first", "light", DESKTOP, None),
     ("garage.png", "/garage", "light", DESKTOP, "Carlo Mendoza"),
     ("waitlist-join.png", "waitjoin:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
+    ("other-service.png", "other:moto:The horn stopped working, and the turn signals blink too fast.", "light",
+     DESKTOP, "Carlo Mendoza"),
+    ("other-price.png", "price:", "light", DESKTOP, "Carlo Mendoza"),
+    ("other-desk.png", "toprice:", "light", DESKTOP, None),
+    ("other-price-phone.png", "price:", "dark", PHONE, "Carlo Mendoza"),
     ("waitlist.png", "/desk/waitlist", "light", DESKTOP, "Mika Reyes"),
     ("phone-app.png", "/settings", "light", PHONE, "Carlo Mendoza"),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
@@ -130,6 +136,17 @@ def main(only=None):
                 page.wait_for_url("**/book?**service=**")
                 page.get_by_role("link", name="Join the waitlist").first.click()
                 page.wait_for_url("**/book/waitlist**")
+            elif address.startswith("other:"):
+                _, vehicle, text = address.split(":", 2)
+                page.goto(f"{BASE}/book?vehicle={vehicle}")
+                page.locator("textarea[name=other]").fill(text)
+                page.locator(".other-request").scroll_into_view_if_needed()
+                page.mouse.wheel(0, 260)
+            elif address in ("price:", "toprice:"):
+                page.goto(BASE + ("/garage" if address == "price:" else "/desk"))
+                page.locator("a[href*='#other-service']").first.click()
+                page.wait_for_url("**/b/**")
+                page.locator("#other-service").scroll_into_view_if_needed()
             elif address.startswith("job:"):
                 page.goto(f"{BASE}/desk/jobs")
                 page.locator(".job-card", has_text=address.split(":", 1)[1]).first.click()
@@ -150,7 +167,7 @@ def main(only=None):
                 page.wait_for_url("**/desk/customers/**")
             elif address in ("garage:first", "today:first"):
                 page.goto(BASE + ("/garage" if address == "garage:first" else "/desk"))
-                page.locator("a.row-title[href^='/b/']").first.click()
+                page.locator("a.row-title[href^='/b/']:not([href*='#'])").first.click()
                 page.wait_for_url("**/b/**")
             else:
                 page.goto(BASE + address)

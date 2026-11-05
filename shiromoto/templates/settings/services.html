@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import back, empty, pencil_icon %}
+{% from "_macros.html" import back, empty, pencil_icon, service_price %}
 {% block title %}Services and Prices - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="settings settings-wide">
@@ -22,7 +22,7 @@
                   <td><span class="vehicle-tag vehicle-{{ service.vehicle_kind }}">{{ VEHICLE_LABELS[service.vehicle_kind] }}</span></td>
                   <td>{{ service.work_minutes|duration }}{% if service.buffer_minutes %} <span class="muted small">+ {{ service.buffer_minutes }} min clean-up</span>{% endif %}</td>
                   <td>{{ service.bay_type.name }}{% if service.skill %} <span class="muted small">· {{ service.skill.name }}</span>{% endif %}</td>
-                  <td class="num">{{ service.price_from|peso }}</td>
+                  <td class="num">{{ service_price(service) }}</td>
                   <td class="num"><a class="icon-link" href="{{ url_for('settings.edit_service', service_id=service.id) }}" aria-label="Edit {{ service.name }}">{{ pencil_icon() }}</a></td>
                 </tr>
               {% endfor %}

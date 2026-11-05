@@ -25,6 +25,7 @@
       </div>
       {{ textarea('description', 'Description', service.description, errors.description, hint='Shown on the price list', rows=3, attrs='maxlength="600"') }}
       <label class="check"><input type="checkbox" name="is_active" value="1"{% if service.is_active %} checked{% endif %}> Customers can book it</label>
+      <label class="check"><input type="checkbox" name="is_other" value="1"{% if service.is_other %} checked{% endif %}> This is the Other Service: customers write what they need, and you send the price after they book. The working time is the time booked to check it, and its price above is not used.</label>
       <div class="form-actions">
         <a class="button button-quiet" href="{{ url_for('settings.services') }}">Cancel</a>
         <button class="button" type="submit">{{ 'Add service' if is_new else 'Save service' }}</button>

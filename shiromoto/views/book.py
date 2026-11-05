@@ -11,6 +11,9 @@ mechanics and bays each time would use, and book for a caller.
 
 With ?move=<ref>, the page moves an existing booking instead: the times
 lead to /b/<ref>/move, and the booking's own time counts as free.
+
+The Other Service (quotes.py) carries what the customer wrote in ?other=...,
+through the days and times, into the hold, and onto the booking.
 """
 import secrets
 from datetime import timedelta
@@ -44,9 +47,22 @@ def ids_from(values):
     return {int(v) for v in values if str(v).isdigit()}
 
 
-def address(vehicle, services, **extra):
+def address(vehicle, services, other="", **extra):
     """The page's address with these choices (url_for repeats a list as service=1&service=2)."""
+    if other and any(sv.is_other for sv in services):
+        extra["other"] = other
     return url_for("book.index", vehicle=vehicle, service=[sv.id for sv in services], **extra)
+
+
+def other_text(values):
+    return " ".join((values.get("other") or "").split())[:booking.REQUEST_MAX]
+
+
+def other_service(s, shop, vehicle):
+    """This vehicle's Other Service, if the shop offers one."""
+    return s.scalar(select(Service).where(Service.shop_id == shop.id, Service.is_other.is_(True),
+                                          Service.is_active.is_(True), Service.vehicle_kind.in_((vehicle, ANY)))
+                    .order_by(Service.position).limit(1))
 
 
 @bp.get("")
@@ -64,16 +80,27 @@ def index():
         ids = ids_from(request.args.getlist("service"))
     if vehicle not in VEHICLE_KINDS:
         return render_template("book.html", step=1, staff_view=staff_view, public_page=not staff_view)
+    other = moving.request_text if moving else other_text(request.args)
+    other_choice = other_service(s, shop, vehicle)
+    if other and other_choice is not None and not moving:
+        ids.add(other_choice.id)  # writing what you need is enough to choose the Other Service
     chosen = chosen_services(s, shop, vehicle, ids)
     menu = service_menu(s, shop)[vehicle]
+    wants_other = any(sv.is_other for sv in chosen)
     context = {"step": 2, "vehicle": vehicle, "menu": menu, "chosen": chosen, "staff_view": staff_view,
-               "public_page": not staff_view, "chosen_ids": {sv.id for sv in chosen}, "moving": moving}
+               "public_page": not staff_view, "chosen_ids": {sv.id for sv in chosen}, "moving": moving,
+               "other": other, "other_error": None}
+    if not moving and wants_other and not other:
+        context["other_error"] = booking.OTHER_NEEDS_TEXT
+        return render_template("book.html", **context), 400
     if not moving and (not chosen or request.args.get("edit")):
         return render_template("book.html", **context)
     need, problem = slots.need_for(chosen, vehicle)
     extra = {"move": moving.ref} if moving else {}
-    context.update(step=3, need=need, problem=problem, price_from=sum(sv.price_from for sv in chosen),
-                   change_url=address(vehicle, chosen, edit=1))
+    if not moving:
+        extra["other"] = other if wants_other else None
+    context.update(step=3, need=need, problem=problem, price_from=sum(sv.price_from for sv in chosen if not sv.is_other),
+                   wants_other=wants_other, change_url=address(vehicle, chosen, other, edit=1))
     if moving and len(chosen) != len(moving.lines):
         problem = "A service on this booking isn't offered any more. Please call the shop to move it."
         context["problem"] = problem
@@ -133,10 +160,11 @@ def hold():
     if vehicle not in VEHICLE_KINDS or day is None or start is None:
         abort(400)
     chosen = chosen_services(s, shop, vehicle, ids_from(request.form.getlist("service")))
-    back = address(vehicle, chosen, day=day.isoformat())
+    other = other_text(request.form)
+    back = address(vehicle, chosen, other, day=day.isoformat())
     release_previous_hold(s)
     try:
-        held = booking.hold(s, shop, chosen, vehicle, day, start, utcnow(), by=g.user)
+        held = booking.hold(s, shop, chosen, vehicle, day, start, utcnow(), by=g.user, request_text=other)
     except booking.BookingError as error:
         flash(str(error), "error")
         return redirect(back)
@@ -153,7 +181,7 @@ def find_hold(token):
     return held
 
 
-def read_details(form, customer_vehicles):
+def read_details(form, customer_vehicles, wants_other=False):
     """The details form -> (values, errors)."""
     values, errors = {}, {}
     values["name"], errors["name"] = forms.text(form, "name", "your name", auth.NAME_MAX_LENGTH)
@@ -163,6 +191,8 @@ def read_details(form, customer_vehicles):
     values["email"] = auth.clean_email(form.get("email", ""))
     errors["email"] = auth.email_problem(values["email"]) if values["email"] else None
     values["notes"], errors["notes"] = forms.text(form, "notes", "a note", 600, required=False)
+    if wants_other:
+        values["request"], errors["request"] = forms.text(form, "request", "what you need", booking.REQUEST_MAX)
     vehicle_id = form.get("vehicle_id", type=int)
     saved = next((v for v in customer_vehicles if v.id == vehicle_id), None)
     if saved:
@@ -198,11 +228,12 @@ def details(token):
     customer = (booking.customer_for_user(s, shop, g.user)
                 if g.user is not None and g.user.role == "customer" else None)
     my_vehicles = [v for v in (customer.vehicles if customer else []) if v.kind == held.vehicle_kind]
-    errors, values = {}, {}
+    wants_other = any(sv.is_other for sv in held.services)
+    errors, values = {}, {"request": held.request_text}
     if customer:
-        values = {"name": customer.name, "phone": customer.phone, "email": customer.email}
+        values.update(name=customer.name, phone=customer.phone, email=customer.email)
     if request.method == "POST":
-        values, errors = read_details(request.form, my_vehicles)
+        values, errors = read_details(request.form, my_vehicles, wants_other)
         source = request.form.get("source") if staff_view else ONLINE
         if source not in SOURCE_LABELS:
             source = PHONE
@@ -213,7 +244,7 @@ def details(token):
             except booking.Gone as error:
                 session.pop("hold", None)
                 flash(str(error), "error")
-                return redirect(address(held.vehicle_kind, held.services,
+                return redirect(address(held.vehicle_kind, held.services, held.request_text,
                                         day=to_local(held.starts_at, shop.timezone).date().isoformat()))
             except booking.BookingError as error:
                 errors["plate"] = str(error)
@@ -228,6 +259,8 @@ def details(token):
     if customer and not values.get("name"):
         values.update(name=customer.name, phone=customer.phone, email=customer.email)
     return render_template("book_details.html", held=held, values=values, errors=errors, staff_view=staff_view,
+                           wants_other=wants_other,
+                           price_from=sum(sv.price_from for sv in held.services if not sv.is_other),
                            public_page=not staff_view, my_vehicles=my_vehicles, key=secrets.token_urlsafe(16),
                            day=to_local(held.starts_at, shop.timezone).date(),
                            start=to_local(held.starts_at, shop.timezone).time(),
@@ -242,7 +275,7 @@ def release(token):
     held = find_hold(token)
     if held is None:
         return redirect(url_for("book.index"))
-    back = address(held.vehicle_kind, held.services,
+    back = address(held.vehicle_kind, held.services, held.request_text,
                    day=to_local(held.starts_at, shops.current().timezone).date().isoformat())
     booking.release(db.session(), held)
     session.pop("hold", None)

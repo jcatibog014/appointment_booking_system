@@ -229,3 +229,16 @@ def test_the_demo_shows_leave_a_part_day_closure_and_a_day_off(app, demo):
     assert "Last 30 Days" in closures and "Sick leave" in closures
     ana = person(app, visitor(demo).shop_id, "mechanic")  # first mechanic by id is Jun
     assert demo.get(f"/settings/staff/{ana.id}").status_code == 200
+
+
+def test_the_demo_shows_the_other_service_both_ways(app, demo):
+    """The desk has a request to price, and Carlo has a price to confirm or decline."""
+    shop_id = visitor(demo).shop_id
+    today = demo.get("/desk").get_data(as_text=True)
+    assert "Other Services to Price" in today and "The horn stopped working" in today
+    view_as(demo, person(app, shop_id, "customer"))
+    garage = demo.get("/garage").get_data(as_text=True)
+    assert "Price to confirm" in garage
+    priced = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.quote_status == "priced")[0]
+    page = demo.get(f"/b/{priced.ref}").get_data(as_text=True)
+    assert "Confirm ₱850" in page and "Rattle from the front fork" in page and "Decline" in page
