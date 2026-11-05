@@ -203,7 +203,7 @@ def add_bookings(s, shop, people, today, moment):
     with the real slot finder so they never overlap. A day the shop is closed moves
     the booking to the next open day."""
     from . import booking
-    from .models import CANCELLED, CHECKED_IN, NO_SHOW, PRICED, BookedSlot, Customer, Service, Vehicle
+    from .models import CANCELLED, CHECKED_IN, NO_SHOW, PRICED, Appointment, BookedSlot, Customer, Service, Vehicle
 
     def arrived(appointment, km):
         appointment.status, appointment.mileage_in = CHECKED_IN, km
@@ -244,6 +244,18 @@ def add_bookings(s, shop, people, today, moment):
         if placed is not None and placed.starts_at <= moment:  # today's that have started are here already
             arrived(placed, km_on(plate, 0))
             live[plate] = placed
+    # Carlo asked to move his next oil change to a later day; the desk decides (Today, and
+    # View As Carlo shows "Waiting for the shop").
+    from . import moves
+    oil = s.scalar(select(Appointment).where(
+        Appointment.shop_id == shop.id, Appointment.vehicle_id == vehicles["NAB 4821"].id,
+        Appointment.status == "booked", Appointment.starts_at > moment).order_by(Appointment.starts_at))
+    if oil is not None:
+        first = to_local(oil.starts_at, shop.timezone).date()
+        for extra in range(1, 6):
+            if moves.place_request(s, shop, oil, first + timedelta(days=extra), 15 * 60, moment - timedelta(hours=1),
+                                   note="I can only drop it off after work."):
+                break
     # The Other Service: Carlo asked for something that isn't on the list, and the shop sent
     # a price (View As Carlo: confirm or decline it). Joy's request still needs a price (Today).
     asked = book("Carlo Mendoza", "123 QWE", ["Motorcycle PMS", "Other Motorcycle Service"], 3, (10, 0),

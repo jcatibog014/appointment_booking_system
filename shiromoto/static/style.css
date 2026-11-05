@@ -623,6 +623,10 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .move-compare { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem 2rem; }
 .move-compare p { margin: 0; }
 .move-arrow { font-size: 2rem; color: var(--accent); }
+.move-compare-small { margin-bottom: 1rem; }
+.move-compare-small .held-when { font-size: 1.15rem; }
+.move-compare-small .move-arrow { font-size: 1.5rem; }
+.move-card .actions { margin-top: .25rem; }
 .table-empty { padding: 0 1.5rem 1.25rem; margin: 0; }
 .table-card .card-head.table-title { padding-right: 1.5rem; }
 

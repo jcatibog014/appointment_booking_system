@@ -242,3 +242,16 @@ def test_the_demo_shows_the_other_service_both_ways(app, demo):
     priced = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.quote_status == "priced")[0]
     page = demo.get(f"/b/{priced.ref}").get_data(as_text=True)
     assert "Confirm ₱850" in page and "Rattle from the front fork" in page and "Decline" in page
+
+
+def test_the_demo_has_a_move_request_both_ways(app, demo):
+    """The desk has a move request to answer, and Carlo sees his waiting for the shop."""
+    shop_id = visitor(demo).shop_id
+    today = demo.get("/desk").get_data(as_text=True)
+    assert "Move Requests" in today and "Carlo Mendoza" in today
+    asked = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.move_status == "asked")[0]
+    assert "Approve the new time" in demo.get(f"/b/{asked.ref}").get_data(as_text=True)
+    view_as(demo, person(app, shop_id, "customer"))
+    assert "Move requested" in demo.get("/garage").get_data(as_text=True)
+    page = demo.get(f"/b/{asked.ref}").get_data(as_text=True)
+    assert "Waiting for the shop" in page and "Withdraw the request" in page and "Ask for another time" not in page

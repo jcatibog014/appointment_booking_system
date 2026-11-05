@@ -159,6 +159,46 @@ def cancelled(s, shop, appointment, now):
                  + (f" Reason: {appointment.cancel_reason}" if appointment.cancel_reason else ""), now)
 
 
+def at_time(moment, shop):
+    local = to_local(moment, shop.timezone)
+    return f"{day(local.date())} at {clock(local.time())}"
+
+
+def move_asked(s, shop, appointment, now):
+    """A customer asked for a new time: the desk and the booking's mechanic decide."""
+    subject = f"Move request: {appointment.vehicle.plate}"
+    body = (f"{appointment.customer.name} asks to move booking {appointment.ref} from {when(appointment, shop)} "
+            f"to {at_time(appointment.move_starts_at, shop)}."
+            + (f" Their note: “{appointment.move_note}”" if appointment.move_note else ""))
+    link = url_for("bookings.show", ref=appointment.ref, _external=True) + "#move-request"
+    dedupe = f"move-ask:{appointment.id}:{appointment.version}"
+    to_staff(s, shop, "move_request", subject, body, link, dedupe, now)
+    if appointment.mechanic.role == "mechanic":
+        queue(s, shop, "move_request", subject, body, link, f"{dedupe}:m", now, user=appointment.mechanic)
+
+
+def move_approved(s, shop, appointment, now):
+    for_customer(s, shop, appointment, "moved", f"Moved to {when(appointment, shop)}",
+                 f"Good news: the shop approved your new time. Booking {appointment.ref} is now on "
+                 f"{when(appointment, shop)}." + (f" {appointment.move_reply}" if appointment.move_reply else ""),
+                 now, dedupe=f"moved:{appointment.id}:{appointment.version}")
+
+
+def move_declined(s, shop, appointment, now):
+    for_customer(s, shop, appointment, "move_declined", f"We couldn't move booking {appointment.ref}",
+                 f"Sorry, the shop can't take {at_time(appointment.move_starts_at, shop)}. Your booking stays on "
+                 f"{when(appointment, shop)}." + (f" {appointment.move_reply}" if appointment.move_reply else "")
+                 + " You can ask for another time from the link.", now,
+                 dedupe=f"move-no:{appointment.id}:{appointment.version}")
+
+
+def move_expired(s, shop, appointment, now):
+    for_customer(s, shop, appointment, "move_expired", f"Your move request for {appointment.ref} ran out",
+                 f"The shop couldn't answer before the time you asked for was given back. Your booking stays on "
+                 f"{when(appointment, shop)}. You can ask for another time from the link.", now,
+                 dedupe=f"move-out:{appointment.id}:{appointment.version}")
+
+
 def estimate_waiting(s, shop, job, now):
     waiting = [line for line in job.lines if line.status == "proposed"]
     if not waiting:

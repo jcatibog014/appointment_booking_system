@@ -319,6 +319,12 @@ TO_PRICE, PRICED, ACCEPTED, DECLINED = "to_price", "priced", "accepted", "declin
 QUOTE_LABELS = {TO_PRICE: "Price to send", PRICED: "Waiting for the customer", ACCEPTED: "Price accepted",
                 DECLINED: "Price declined"}
 QUOTE_OPEN = (TO_PRICE, PRICED)  # the price isn't agreed yet
+
+# A customer's request for a new time (moves.py): staff approve or decline it.
+MOVE_ASKED, MOVE_APPROVED, MOVE_DECLINED, MOVE_WITHDRAWN, MOVE_EXPIRED = \
+    "asked", "approved", "declined", "withdrawn", "expired"
+MOVE_LABELS = {MOVE_ASKED: "Move requested", MOVE_APPROVED: "Move approved", MOVE_DECLINED: "Move declined",
+               MOVE_WITHDRAWN: "Move withdrawn", MOVE_EXPIRED: "Move request ran out"}
 SOURCE_LABELS = {ONLINE: "Online", PHONE: "Phone", WALK_IN: "Walk-in"}
 
 
@@ -358,6 +364,19 @@ class Appointment(Base):
     quoted_at: Mapped[datetime | None] = mapped_column(DateTime)
     quoted_by: Mapped[str] = mapped_column(String(80), default="", server_default="")  # who sent the price
     quote_decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # A move request (moves.py): the customer asks for a new time, and the shop decides.
+    # The new time is held (holds.token = move_hold_token) until then.
+    move_status: Mapped[str] = mapped_column(String(12), default="", server_default="", index=True)
+    move_hold_token: Mapped[str] = mapped_column(String(48), default="", server_default="")
+    move_from_at: Mapped[datetime | None] = mapped_column(DateTime)  # the time it had when the customer asked
+    move_starts_at: Mapped[datetime | None] = mapped_column(DateTime)  # the time they asked for
+    move_ends_at: Mapped[datetime | None] = mapped_column(DateTime)
+    move_expires_at: Mapped[datetime | None] = mapped_column(DateTime)  # the held time is given back then
+    move_asked_at: Mapped[datetime | None] = mapped_column(DateTime)
+    move_note: Mapped[str] = mapped_column(String(300), default="", server_default="")  # the customer's reason
+    move_reply: Mapped[str] = mapped_column(String(300), default="", server_default="")  # the shop's answer
+    move_decided_by: Mapped[str] = mapped_column(String(80), default="", server_default="")
+    move_decided_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The booking form's one-time key: pressing "Book" twice makes one booking.
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -377,6 +396,10 @@ class Appointment(Base):
     @property
     def price_from(self):
         return sum(line.price_from for line in self.lines)
+
+    def move_waiting(self, now):
+        """True while a move request waits for the shop (and its held time hasn't run out)."""
+        return self.move_status == MOVE_ASKED and self.move_expires_at is not None and self.move_expires_at > now
 
     @property
     def price_open(self):

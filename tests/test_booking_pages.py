@@ -160,22 +160,28 @@ def test_staff_open_any_booking(app, shop_id, day, owner_id):
 
 # ---------- Move and cancel ----------
 
-def test_a_guest_moves_their_booking(app, shop_id, day):
+def test_a_guest_asks_for_a_new_time_and_staff_approve_it(app, shop_id, day):
     client = browser(app)
     book(client, app, shop_id, day)
     appointment = the_booking(app)
     response = client.get(f"/b/{appointment.ref}/move")
     assert response.headers["Location"] == f"/book?move={appointment.ref}"
     times = client.get(response.headers["Location"] + f"&day={day}").get_data(as_text=True)
-    assert "Move Booking" in times and "Keep the current time" in times
+    assert "Ask for a New Time" in times and "Keep the current time" in times
     confirm = client.get(f"/b/{appointment.ref}/move/confirm?day={day}&start={9 * H}").get_data(as_text=True)
-    assert "9:00 AM" in confirm and "Move my booking" in confirm
-    post(client, f"/b/{appointment.ref}/move/confirm", {"day": day.isoformat(), "start": 9 * H, "version": 1})
+    assert "9:00 AM" in confirm and "Send the request" in confirm
+    page = post(client, f"/b/{appointment.ref}/move/confirm", {"day": day.isoformat(), "start": 9 * H, "version": 1,
+                                                                "note": "After work"}, follow_redirects=True)
+    assert "Request sent" in page.get_data(as_text=True) and "Waiting for the shop" in page.get_data(as_text=True)
+    asked = the_booking(app)
+    assert asked.starts_at.hour == 0 and asked.move_status == "asked"  # still 8:00 Manila (00:00 UTC)
+    staff = log_in_as(app.test_client(), find(app, User, User.name == "Jun")[0].id)
+    post(staff, f"/b/{appointment.ref}/move/answer", {"answer": "approve"})
     moved = the_booking(app)
-    assert moved.starts_at.hour == 1 and moved.version == 2  # 9:00 Manila = 01:00 UTC
+    assert moved.starts_at.hour == 1 and moved.move_status == "approved"  # 9:00 Manila = 01:00 UTC
 
 
-def test_an_old_page_cant_cancel_a_moved_booking(app, shop_id, day):
+def test_an_old_page_cant_cancel_after_a_move_request(app, shop_id, day):
     client = browser(app)
     book(client, app, shop_id, day)
     ref = the_booking(app).ref
