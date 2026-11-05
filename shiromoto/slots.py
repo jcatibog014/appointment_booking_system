@@ -247,12 +247,16 @@ def load_day(s, shop, day, busy=None):
     return DayPicture(day=day, closed=closed, opens=opens, closes=closes, crew=crew, bays=bays, windows=base)
 
 
+SHORTEST_SLOT = 30  # minutes: the shortest service, so a shorter gap isn't worth showing
+
+
 def free_time(picture, earliest=0):
     """What's left of one day, for the staff's Free Times page: for each mechanic and
-    each bay, its open time minus what is booked or held, from `earliest` on.
+    each bay, its open time minus what is booked or held, from `earliest` on. Each
+    stretch is one "slot", at least SHORTEST_SLOT minutes long.
     Returns (crew rows, bay rows), each a list of (Crew or Place, [(start, end), ...])."""
     def left(windows, busy):
-        return [w for w in subtract(intersect(windows, earliest, 24 * 60), busy) if w[1] - w[0] >= STEP]
+        return [w for w in subtract(intersect(windows, earliest, 24 * 60), busy) if w[1] - w[0] >= SHORTEST_SLOT]
     crew = [(person, [] if person.off else left(person.windows, person.busy)) for person in picture.crew]
     bays = [(bay, left(picture.windows, bay.busy)) for bay in picture.bays]
     return crew, bays

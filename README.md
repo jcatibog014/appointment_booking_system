@@ -66,7 +66,7 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 **The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
 
-**Free Times** (staff, in the menu) is not a booking page. It shows only what's still open: for each mechanic (or each bay), the stretches of the day that aren't booked or held, like "8:00 AM – 12:00 PM", and how much that is in all. Each day in the strip shows its mechanics' open hours, added up. To book from it, press **Book a walk-in or caller**. That page also shows which mechanics and bays each start time would use.
+**Available Slots** (staff, in the menu) is not a booking page. It lists only what's still open: for each mechanic (or each bay), its slots, like "8:00 AM – 12:00 PM", and how much free time that is. A slot is a stretch of at least 30 minutes (the shortest service) with no booking, held time, break or leave. Each day in the strip says how many slots it has, like "9 slots available". To book from it, press **Book a walk-in or caller**. That page also shows which mechanics and bays each start time would use.
 
 ## How Double Booking Is Stopped
 
@@ -106,7 +106,7 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 - The customer's menu is just **My Garage, Book, Services, Settings**. The shop's hours are on the Services page, so they don't need a button of their own.
 
 **For staff:**
-- **Free Times** shows what's still open, and **Book a walk-in or caller** books from it.
+- **Available Slots** shows what's still open, and **Book a walk-in or caller** books from it.
 - **Today** lists the day's bookings. A mechanic sees their own jobs.
 - Staff can open any booking, and can move or cancel it at any time. They also answer customers' move requests.
 
@@ -123,7 +123,7 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 - **Bookings:** every booking. Search by booking number, name, phone (written any way) or plate, and filter by status, who booked and dates.
 - **Customers:** everyone who booked, with their vehicles, visits, no-shows and the shop's private notes.
 - **A booking's page** keeps everything in one card: the details, then Add to calendar and Move, then Check in and No-show for the desk, then **Cancel this booking** (folded away until you need it).
-- Mechanics see Today (their own jobs), the Calendar, Jobs and Free Times. The owner and service advisors see everything.
+- Mechanics see Today (their own jobs), the Calendar, Jobs and Available Slots. The owner and service advisors see everything.
 
 ## Jobs, Estimates and Parts
 
@@ -237,8 +237,8 @@ For the owner, over the last 7, 30 or 90 days:
 |---|---|
 | ![Today in dark mode](docs/screenshots/today-dark.png) Today, dark mode | ![Today, as a mechanic](docs/screenshots/today-mechanic.png) Today, as a mechanic |
 | ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
-| ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff |
-| ![Free Times by bay, in dark mode](docs/screenshots/free-times-dark.png) Free Times by bay, dark mode | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
+| ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Available Slots for staff](docs/screenshots/free-times.png) Available Slots, for staff |
+| ![Available Slots by bay, in dark mode](docs/screenshots/free-times-dark.png) Available Slots by bay, dark mode | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
 | ![Booking for a walk-in or caller](docs/screenshots/book-staff.png) Booking for a walk-in or caller | |
 | ![Every booking, with search](docs/screenshots/bookings.png) Bookings | ![A customer's page](docs/screenshots/customer.png) A customer |
 | ![The Jobs board](docs/screenshots/jobs.png) Jobs board | ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate |

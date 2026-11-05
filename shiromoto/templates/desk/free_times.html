@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Free Times - {{ shop.name }}{% endblock %}
+{% block title %}Available Slots - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="page-head">
-    <h1>Free Times</h1>
+    <h1>Available Slots</h1>
     {% if can_book %}<a class="button" href="{{ url_for('book.index', day=day.isoformat()) }}">Book a walk-in or caller</a>{% endif %}
-    <p class="page-sub">What's still open on each {{ 'mechanic' if by == 'mechanic' else 'bay' }}: their hours minus bookings, held times, breaks and leave. Each day shows its mechanics' open hours, added up. Times are on the shop's clock.</p>
+    <p class="page-sub">A slot is a stretch of at least 30 minutes when a {{ 'mechanic' if by == 'mechanic' else 'bay' }} has nothing booked: no bookings, held times, breaks or leave. Times are on the shop's clock.</p>
   </div>
 
   <nav class="day-strip" aria-label="Days">
     {% if earlier %}<a class="day-arrow" href="{{ url_for('desk.free_times', day=earlier.isoformat(), by=by) }}" aria-label="Earlier days">&lsaquo;</a>{% else %}<span class="day-arrow is-off" aria-hidden="true">&lsaquo;</span>{% endif %}
     <ul>
-      {% for d, closed, minutes in strip %}
+      {% for d, closed, count in strip %}
         <li>
-          <a class="day-pill{{ ' is-picked' if d == day else '' }}{{ ' is-full' if not minutes else '' }}" href="{{ url_for('desk.free_times', day=d.isoformat(), by=by, **{'from': strip_start.isoformat()}) }}"{% if d == day %} aria-current="date"{% endif %}>
+          <a class="day-pill{{ ' is-picked' if d == day else '' }}{{ ' is-full' if not count else '' }}" href="{{ url_for('desk.free_times', day=d.isoformat(), by=by, **{'from': strip_start.isoformat()}) }}"{% if d == day %} aria-current="date"{% endif %}>
             <span class="day-name">{{ 'Today' if d == today else d.strftime('%a') }}</span>
             <span class="day-number">{{ d.day }} {{ d.strftime('%b') }}</span>
-            <span class="day-count">{% if closed %}Closed{% elif minutes %}{{ minutes|duration }}<span class="day-count-more"> open</span>{% else %}Full{% endif %}</span>
+            <span class="day-count">{% if closed %}Closed{% elif count %}{{ count }} slot{{ 's' if count != 1 }}<span class="day-count-more"> available</span>{% else %}Fully booked{% endif %}</span>
           </a>
         </li>
       {% endfor %}
@@ -38,7 +38,7 @@
     {% else %}
       <div class="table-scroll">
         <table class="table free-table">
-          <thead><tr><th scope="col">{{ 'Mechanic' if by == 'mechanic' else 'Bay' }}</th><th scope="col">Free</th><th scope="col" class="num">In all</th></tr></thead>
+          <thead><tr><th scope="col">{{ 'Mechanic' if by == 'mechanic' else 'Bay' }}</th><th scope="col">Available slots</th><th scope="col" class="num">Free time</th></tr></thead>
           <tbody>
             {% for row, windows in rows %}
               <tr class="{{ 'is-off' if not windows else '' }}">

@@ -18,7 +18,7 @@
         {{ link('desk.today', 'Today', request.endpoint == 'desk.today') }}
         {{ link('desk.calendar', 'Calendar', request.endpoint == 'desk.calendar') }}
         {{ link('jobs.board', 'Jobs', request.endpoint in ('jobs.board', 'jobs.show')) }}
-        {{ link('desk.free_times', 'Free Times', request.endpoint == 'desk.free_times' or section == 'book') }}
+        {{ link('desk.free_times', 'Available Slots', request.endpoint == 'desk.free_times' or section == 'book') }}
         {% if g.user.role in ('owner', 'advisor') %}
           {{ link('desk.bookings', 'Bookings', request.endpoint == 'desk.bookings' or section == 'bookings') }}
           {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer', 'jobs.vehicle')) }}

@@ -64,7 +64,7 @@ def test_staff_see_who_and_which_bay(app, shop_id, owner_id):
         if "Free mechanics" in page:
             found = True
             break
-    assert found and "Jun dela Cruz" in page and "Lift 1" in page and "Free Times" in page
+    assert found and "Jun dela Cruz" in page and "Lift 1" in page and "Available Slots" in page
     assert 'class="sidebar"' in page
 
 

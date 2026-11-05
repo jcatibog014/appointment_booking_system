@@ -331,11 +331,13 @@ def test_a_customer_starts_at_my_garage(app, shop_id):
     assert "Next visit" in customer.get("/garage").get_data(as_text=True)
 
 
-def test_free_times_lists_only_what_is_open(app, shop_id, day):
+def test_available_slots_lists_only_what_is_open(app, shop_id, day):
     owner = log_in_as(app.test_client(), make_user(app, shop_id, "hiro@shop.example", "owner", "Hiro"))
     page = owner.get(f"/desk/free?day={day}&by=mechanic").get_data(as_text=True)
-    # Jun works 8:00 to 5:00 with lunch at 12:00: two free stretches, nothing to choose first.
-    assert "Jun" in page and "8:00 AM – 12:00 PM" in page and "1:00 PM – 5:00 PM" in page and "8 h" in page
+    # Jun works 8:00 to 5:00 with lunch at 12:00: two slots, and nothing to choose first.
+    assert "Available Slots" in page and "Jun" in page and "8 h" in page
+    assert "8:00 AM – 12:00 PM" in page and "1:00 PM – 5:00 PM" in page
+    assert '2 slots<span class="day-count-more"> available</span>' in page
     assert "Vehicle" not in page and "Choose" not in page
     book(browser(app), app, shop_id, day, start=8 * H)  # an oil change, 8:00 to 9:00
     page = owner.get(f"/desk/free?day={day}&by=bay").get_data(as_text=True)
