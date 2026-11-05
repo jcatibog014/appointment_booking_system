@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Customers - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Customers</h1>
+    <p class="page-sub">Everyone who has booked, with their vehicles. Search by name, phone or plate.</p>
+  </div>
+  <form method="get" class="card filter-bar">
+    <label class="field grow"><span class="field-label">Search</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="Name, phone or plate"></label>
+    <div class="filter-actions">
+      <button class="button" type="submit">Search</button>
+      {% if q %}<a class="button button-quiet" href="{{ url_for('desk.customers') }}">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% if rows %}
+    <section class="card table-card">
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">Name</th><th scope="col">Mobile</th><th scope="col">Vehicles</th><th scope="col" class="num">Bookings</th><th scope="col">Last booking</th></tr></thead>
+          <tbody>
+            {% for person, visits, last in rows %}
+              <tr data-href="{{ url_for('desk.customer', customer_id=person.id) }}">
+                <td><a class="row-title" href="{{ url_for('desk.customer', customer_id=person.id) }}">{{ person.name }}</a>{% if person.user_id %} <span class="pill">Account</span>{% endif %}</td>
+                <td>{{ person.phone }}</td>
+                <td>{{ person.vehicles|map(attribute='plate')|join(', ') }}</td>
+                <td class="num">{{ visits or 0 }}</td>
+                <td>{{ last|local_moment(shop.timezone) if last else '' }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  {% else %}
+    <div class="empty-state"><h2>No Customers Found</h2><p>{{ 'Nobody matches that search.' if q else 'Customers appear here after their first booking.' }}</p></div>
+  {% endif %}
+{% endblock %}

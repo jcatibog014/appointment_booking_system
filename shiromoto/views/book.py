@@ -89,11 +89,12 @@ def index():
     first, last = slots.bookable_days(shop, now)
     strip_start = parse_day(request.args.get("from")) or first
     strip_start = min(max(strip_start, first), last)
-    days = slots.week_of_choices(s, shop, need, strip_start, now, STRIP_DAYS, busy_for)
+    notice = 0 if staff_view else None  # staff book walk-ins from right now
+    days = slots.week_of_choices(s, shop, need, strip_start, now, STRIP_DAYS, busy_for, notice)
     wanted = parse_day(request.args.get("day"))
     picked = next((c for c in days if c.day == wanted), None)
     if picked is None and wanted and first <= wanted <= last:
-        picked = slots.day_choice(s, shop, need, wanted, now, busy_for(wanted))
+        picked = slots.day_choice(s, shop, need, wanted, now, busy_for(wanted), notice)
     if picked is None:
         picked = next((c for c in days if c.count), days[0])
     earlier = strip_start - timedelta(days=STRIP_DAYS)

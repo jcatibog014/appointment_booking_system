@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import back, csrf, field %}
+{% from "_desk.html" import actions with context %}
 {% block title %}Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="narrow">
@@ -35,6 +36,12 @@
           <div><dt>Booked</dt><dd>{{ SOURCE_LABELS[appointment.source] }}, {{ appointment.created_at|local_moment(shop.timezone) }}</dd></div>
         {% endif %}
         {% if appointment.notes %}<div><dt>Notes</dt><dd>{{ appointment.notes }}</dd></div>{% endif %}
+        {% if appointment.checked_in_at %}
+          <div><dt>Checked in</dt><dd>{{ appointment.checked_in_at|local_moment(shop.timezone) }}{% if appointment.mileage_in %} · {{ '{:,}'.format(appointment.mileage_in) }} km{% endif %}</dd></div>
+        {% endif %}
+        {% if appointment.no_show_at %}
+          <div><dt>No-show</dt><dd>Marked {{ appointment.no_show_at|local_moment(shop.timezone) }}</dd></div>
+        {% endif %}
         {% if appointment.status == 'cancelled' %}
           <div><dt>Cancelled</dt><dd>{{ appointment.cancelled_at|local_moment(shop.timezone) }}{% if appointment.cancel_reason %}: {{ appointment.cancel_reason }}{% endif %}</dd></div>
         {% endif %}
@@ -47,6 +54,24 @@
         </p>
       {% endif %}
     </section>
+
+    {% if staff_view and g.user.role in ('owner', 'advisor') and appointment.status in ('booked', 'no_show') %}
+      <section class="card desk-actions">
+        <h2>Front Desk</h2>
+        {% if appointment.status == 'booked' and now >= appointment.starts_at - CHECK_IN_EARLY and now < appointment.ends_at %}
+          <form method="post" action="{{ url_for('bookings.check_in', ref=appointment.ref) }}" class="filter-bar plain">
+            {{ csrf() }}
+            <input type="hidden" name="version" value="{{ appointment.version }}">
+            <label class="field"><span class="field-label">Odometer <span class="hint">Optional, in km</span></span><input name="mileage" inputmode="numeric" maxlength="9"></label>
+            <div class="filter-actions"><button class="button" type="submit">Check in</button></div>
+          </form>
+        {% endif %}
+        <div class="actions">{{ actions(appointment, now, check_in=False) }}</div>
+        {% if appointment.status == 'booked' and now < appointment.starts_at - CHECK_IN_EARLY %}
+          <p class="muted small">Check in opens 2 hours before the start.</p>
+        {% endif %}
+      </section>
+    {% endif %}
 
     {% if appointment.status == 'booked' %}
       {% if can_change %}

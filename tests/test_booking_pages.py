@@ -283,7 +283,7 @@ def test_staff_book_for_a_caller(app, shop_id, day, owner_id):
     appointment = the_booking(app)
     assert appointment.source == "walk_in" and appointment.created_by_id == owner_id
     desk_day = owner.get("/desk").get_data(as_text=True)
-    assert "Book a customer" in desk_day
+    assert "Walk-in or caller" in desk_day
 
 
 # ---------- The calendar file ----------

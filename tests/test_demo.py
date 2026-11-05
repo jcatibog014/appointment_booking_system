@@ -7,14 +7,15 @@ from sqlalchemy import func, select
 
 from shiromoto import auth, db
 from shiromoto.dates import utcnow
-from shiromoto.models import Appointment, Bay, Service, Shop, User
+from shiromoto.models import Appointment, Bay, Customer, Service, Shop, User
 
 from .conftest import CSRF, PASSWORD, find, post
 
 # Words that only appear when a list is empty. A demo page must show none of them.
 EMPTY_PAGE_SIGNS = ["No mechanics yet", "No bays yet", "No Services Yet", "Nothing planned", "open as usual",
                     "No holidays, closures or leave", "No skills set", "services yet",
-                    "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle"]
+                    "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle",
+                    "Nothing Found", "No Customers Found", "No bookings yet."]
 
 
 def start_demo(app):
@@ -165,8 +166,12 @@ def pages_for(app, role, shop_id):
     pages = ["/", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
     first_booking = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.status == "booked")[0]
     if role != "customer":
-        pages += ["/desk", f"/b/{first_booking.ref}"]
-    else:
+        pages += ["/desk", f"/b/{first_booking.ref}", "/desk/calendar", "/desk/calendar?view=week",
+                  "/desk/calendar?by=mechanic"]
+    if role in ("owner", "advisor"):
+        carlo = find(app, Customer, Customer.shop_id == shop_id, Customer.name == "Carlo Mendoza")[0]
+        pages += ["/desk/bookings", "/desk/customers", f"/desk/customers/{carlo.id}"]
+    if role == "customer":
         carlos = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.customer.has(user_id=find(
             app, User, User.shop_id == shop_id, User.role == "customer")[0].id))
         pages += ["/garage"] + [f"/b/{item.ref}" for item in carlos]

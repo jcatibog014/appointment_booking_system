@@ -13,6 +13,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import select
 
 from .. import booking, calendar_file, db, shops
+from ..auth import safe_next
 from ..dates import parse_day, to_local, utcnow
 from ..models import BOOKED, Appointment
 
@@ -75,7 +76,7 @@ def show(ref):
     return render_template(
         "booking.html", appointment=appointment, link=manage_link(appointment), can_change=can_change,
         starts=to_local(appointment.starts_at, shop.timezone), ends=to_local(appointment.ends_at, shop.timezone),
-        staff_view=by_staff(), public_page=not by_staff(), mine=mine,
+        staff_view=by_staff(), public_page=not by_staff(), mine=mine, now=now,
         can_save=g.user is not None and g.user.role == "customer" and appointment.customer.user_id is None)
 
 
@@ -155,3 +156,48 @@ def save(ref):
     s.commit()
     flash(f"Booking {appointment.ref} is saved to My Garage.")
     return redirect(url_for("garage.index"))
+
+
+# ---------- The front desk's buttons ----------
+
+def desk_action(ref, act, done_message):
+    """Run one front-desk action on a booking, then go back where the button was."""
+    appointment = open_booking(ref)
+    if g.user is None or g.user.role not in ("owner", "advisor"):
+        abort(403, "Only the front desk can do this.")
+    s = db.session()
+    try:
+        act(s, appointment)
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        flash(done_message(appointment))
+    return redirect(safe_back(url_for("bookings.show", ref=appointment.ref)))
+
+
+def safe_back(default):
+    return safe_next(request.form.get("next"), default)
+
+
+@bp.post("/<ref>/check-in")
+def check_in(ref):
+    mileage = request.form.get("mileage", "").replace(",", "").strip()
+    km = int(mileage) if mileage.isdigit() and int(mileage) < 2_000_000 else None
+    return desk_action(ref, lambda s, a: booking.check_in(s, shops.current(), a, utcnow(),
+                                                          request.form.get("version", type=int), km),
+                       lambda a: f"{a.customer.name} is checked in ({a.vehicle.plate}).")
+
+
+@bp.post("/<ref>/no-show")
+def no_show(ref):
+    return desk_action(ref, lambda s, a: booking.mark_no_show(s, shops.current(), a, utcnow(),
+                                                              request.form.get("version", type=int)),
+                       lambda a: f"{a.ref} is marked as a no-show. The rest of its time is free for walk-ins.")
+
+
+@bp.post("/<ref>/undo-no-show")
+def undo_no_show(ref):
+    return desk_action(ref, lambda s, a: booking.undo_no_show(s, shops.current(), a, utcnow(),
+                                                              request.form.get("version", type=int)),
+                       lambda a: f"{a.customer.name} came after all: {a.ref} is booked again.")

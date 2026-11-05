@@ -54,6 +54,13 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - `Appointment.version` is SQLAlchemy's `version_id_col`; pages send it back, and a stale one raises `Changed`.
   - `holds`, `appointments`, `shops` and `users` use `sqlite_autoincrement`: SQLite would otherwise reuse a deleted row's id.
   - The race tests (`tests/test_booking.py`) use real threads. Run them on Neon too (`TEST_DATABASE_URL`).
+- **The front desk** (`views/desk.py`, `timeline.py`): statuses are booked → checked in, or no-show, or cancelled (`LIVE_STATUSES` still hold time).
+  - `booking.check_in` works from 2 h before the start until the end.
+  - `mark_no_show` works 15 min after the start and deletes the cells from this quarter hour on. `undo_no_show` re-adds them, and raises `Taken` if a walk-in got them.
+  - Staff holds use `notice=0` (from now on, never the past).
+  - The timeline is a CSS grid with one column per quarter hour. Blocks use the generated `gs-N`/`ge-N` classes (no inline styles under the CSP; rules 1–98 at the end of `style.css`).
+  - Desk macros are imported `with context` (they use `shop`).
+  - Migration 0003 recreates the PostgreSQL exclusion constraints to count only live statuses.
 - **Booking pages:** `/b/<ref>` opens with the manage link (`?t=`; only its SHA-256 is stored, and it is remembered in `session["bookings"]`, which survives logging in), for the customer it belongs to, or for staff. Everyone else gets 404. Customers can change a booking until `cancel_cutoff_hours` before it; staff always can. `calendar_file.py` writes the .ics by hand (TZID + VTIMEZONE, escaping, 75-byte folding).
 - **The Book page (`views/book.py`)** keeps the first steps as GETs, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.

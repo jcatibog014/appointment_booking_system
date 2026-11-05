@@ -36,6 +36,11 @@ PAGES = [
     ("today.png", "/desk", "light", DESKTOP, None),
     ("today-dark.png", "/desk", "dark", DESKTOP, None),
     ("today-mechanic.png", "/desk", "light", DESKTOP, "Jun dela Cruz"),
+    ("calendar.png", "/desk/calendar?by=bay", "light", DESKTOP, None),
+    ("calendar-week.png", "/desk/calendar?view=week", "light", DESKTOP, None),
+    ("calendar-dark.png", "/desk/calendar?by=mechanic", "dark", DESKTOP, None),
+    ("bookings.png", "/desk/bookings", "light", DESKTOP, "Mika Reyes"),
+    ("customer.png", "customer:Carlo Mendoza", "light", DESKTOP, "Mika Reyes"),
     ("settings.png", "/settings", "light", DESKTOP, None),
     ("hours.png", "/settings/hours", "light", DESKTOP, None),
     ("closures.png", "/settings/closures", "light", DESKTOP, None),
@@ -107,6 +112,10 @@ def main(only=None):
                 if action == "hold":
                     page.locator(".time-chip").first.click()
                     page.wait_for_url("**/book/details/**")
+            elif address.startswith("customer:"):
+                page.goto(f"{BASE}/desk/customers")
+                page.get_by_role("link", name=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/desk/customers/**")
             elif address in ("garage:first", "today:first"):
                 page.goto(BASE + ("/garage" if address == "garage:first" else "/desk"))
                 page.locator("a.row-title[href^='/b/']").first.click()

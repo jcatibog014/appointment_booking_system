@@ -268,6 +268,7 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(40))
     phone_key: Mapped[str] = mapped_column(String(20), index=True)  # digits only: 09175550142
     email: Mapped[str] = mapped_column(String(254), default="")
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")  # staff only
     created_at: Mapped[datetime] = now_column()
 
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="customer", order_by="Vehicle.id")
@@ -300,8 +301,11 @@ class Vehicle(Base):
 
 # ---------- Bookings (stage 3) ----------
 
-BOOKED, CANCELLED = "booked", "cancelled"
-STATUS_LABELS = {BOOKED: "Booked", CANCELLED: "Cancelled"}
+BOOKED, CHECKED_IN, NO_SHOW, CANCELLED = "booked", "checked_in", "no_show", "cancelled"
+STATUS_LABELS = {BOOKED: "Booked", CHECKED_IN: "Checked in", NO_SHOW: "No-show", CANCELLED: "Cancelled"}
+# A booking in one of these still holds its bay and mechanic. (A no-show gives back
+# the rest of its time; a cancelled booking gives back all of it.)
+LIVE_STATUSES = (BOOKED, CHECKED_IN)
 ONLINE, PHONE, WALK_IN = "online", "phone", "walk_in"
 SOURCE_LABELS = {ONLINE: "Online", PHONE: "Phone", WALK_IN: "Walk-in"}
 
@@ -331,6 +335,9 @@ class Appointment(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     cancel_reason: Mapped[str] = mapped_column(String(200), default="")
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime)
+    mileage_in: Mapped[int | None] = mapped_column(Integer)  # km on the odometer at check-in
+    no_show_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The booking form's one-time key: pressing "Book" twice makes one booking.
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -421,9 +428,9 @@ class BookedSlot(Base):
 NO_OVERLAP_SQL = [
     "CREATE EXTENSION IF NOT EXISTS btree_gist",
     "ALTER TABLE appointments ADD CONSTRAINT appointments_bay_no_overlap EXCLUDE USING gist "
-    "(bay_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+    "(bay_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status IN ('booked', 'checked_in'))",
     "ALTER TABLE appointments ADD CONSTRAINT appointments_mechanic_no_overlap EXCLUDE USING gist "
-    "(mechanic_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+    "(mechanic_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status IN ('booked', 'checked_in'))",
 ]
 for _statement in NO_OVERLAP_SQL:
     event.listen(Appointment.__table__, "after_create", DDL(_statement).execute_if(dialect="postgresql"))

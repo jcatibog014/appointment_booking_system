@@ -4,7 +4,7 @@
 
 I made this project to practice three skills: **date and time handling** (opening hours, lunch breaks, holidays and leave), **transactions** (a booking is saved all at once, or not at all) and **concurrency** (two people who press "Book" at the same second can't both get the last slot).
 
-It is built in 8 stages, one pull request each. Stage 1 set up the shop and stage 2 found the free times. This is **stage 3: booking, with no double booking**.
+It was built in 8 stages: the shop's setup, free times, booking with no double booking, the front desk, jobs, notices and the phone app, insights, and the demo.
 
 ![The desk's Today page](docs/screenshots/today.png)
 
@@ -20,6 +20,16 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **mechanic** has skills (Engine, Brakes, Electrical, Aircon, Tires, Motorcycle) and working hours.
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
+
+## The Front Desk (Stage 4)
+
+- **Today** shows **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes. You can see the bookings, the times someone is booking right now, lunch, and a red line for "now". Under it is **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
+- **No-show:** after 15 minutes the front desk can mark a no-show. The rest of that booking's time is freed at once, so a walk-in can have the bay. If the customer comes after all, **They came** takes the time back. But if a walk-in was already booked into it, the database refuses and nothing changes.
+- **Walk-ins and callers:** staff book from **right now**. The customers' 2-hour notice is only for online bookings.
+- **Calendar:** any day as the timeline (by bay or by mechanic), or a whole week.
+- **Bookings:** every booking. Search by booking number, name, phone (written any way) or plate, and filter by status, who booked and dates.
+- **Customers:** everyone who booked, with their vehicles, visits, no-shows and the shop's private notes.
+- Mechanics see Today (their own jobs) and the Calendar. The owner and service advisors see everything.
 
 ## How Double Booking Is Stopped (Stage 3)
 
@@ -118,7 +128,6 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 | Stage | What it adds |
 |---|---|
-| 4 | The front desk: day and week calendar, walk-ins, check-in |
 | 5 | Jobs: status, checklist and photos, estimates the customer approves, parts and stock |
 | 6 | Email, reminders, waitlist, and an app for your phone |
 | 7 | Insights: busy hours, bay use, no-shows and money |
@@ -139,6 +148,9 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone | ![Your details, with the time kept for you](docs/screenshots/book-details.png) Your details (the time is kept) |
 | ![A booking's page](docs/screenshots/booking.png) A booking's page | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
 | ![My Garage](docs/screenshots/garage.png) My Garage | ![Make an account](docs/screenshots/signup.png) Make an account |
+| ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
+| ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Every booking, with search](docs/screenshots/bookings.png) Bookings |
+| ![A customer's page](docs/screenshots/customer.png) A customer | |
 
 All people in these pictures are made up. They come from Try Demo.
 

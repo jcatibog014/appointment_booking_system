@@ -62,7 +62,7 @@ def create_app(test_config=None):
         # Without it we'd use a SQLite file, and Render forgets files on every restart.
         raise RuntimeError("Set the DATABASE_URL environment variable on Render (Neon's connection string).")
 
-    from . import auth, db, formatting, shops
+    from . import auth, booking, db, formatting, shops
     from .models import CLOSURE_LABELS, ROLE_LABELS, SOURCE_LABELS, STATUS_LABELS, VEHICLE_LABELS, WEEKDAYS
     from .views import book, bookings, desk, garage, public, settings
 
@@ -75,7 +75,8 @@ def create_app(test_config=None):
 
     app.jinja_env.globals.update(APP_NAME="ShiroMoto Garage", ROLE_LABELS=ROLE_LABELS,
                                  VEHICLE_LABELS=VEHICLE_LABELS, CLOSURE_LABELS=CLOSURE_LABELS, WEEKDAYS=WEEKDAYS,
-                                 STATUS_LABELS=STATUS_LABELS, SOURCE_LABELS=SOURCE_LABELS)
+                                 STATUS_LABELS=STATUS_LABELS, SOURCE_LABELS=SOURCE_LABELS,
+                                 CHECK_IN_EARLY=booking.CHECK_IN_EARLY, NO_SHOW_GRACE=booking.NO_SHOW_GRACE)
 
     @app.context_processor
     def shop_and_demo():

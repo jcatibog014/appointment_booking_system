@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_desk.html" import timeline with context %}
+{% block title %}Calendar - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Calendar</h1>
+    <div class="segmented" role="group" aria-label="View">
+      <a href="{{ url_for('desk.calendar', view='day', day=day.isoformat(), by=by) }}"{% if view == 'day' %} aria-current="true"{% endif %}>Day</a>
+      <a href="{{ url_for('desk.calendar', view='week', day=day.isoformat(), by=by) }}"{% if view == 'week' %} aria-current="true"{% endif %}>Week</a>
+    </div>
+  </div>
+
+  <nav class="period-nav" aria-label="{{ 'Days' if view == 'day' else 'Weeks' }}">
+    <a class="button button-small button-quiet" href="{{ url_for('desk.calendar', view=view, day=previous.isoformat(), by=by) }}">&larr; {{ 'Day before' if view == 'day' else 'Week before' }}</a>
+    <h2>{% if view == 'day' %}{{ day|long_day }}{% else %}{{ monday|day_range(week[6][0]) }}{% endif %}</h2>
+    <a class="button button-small button-quiet" href="{{ url_for('desk.calendar', view=view, day=following.isoformat(), by=by) }}">{{ 'Day after' if view == 'day' else 'Week after' }} &rarr;</a>
+    {% if (view == 'day' and day != today) or (view == 'week' and not (monday <= today <= week[6][0])) %}
+      <a class="small" href="{{ url_for('desk.calendar', view=view, by=by) }}">Back to today</a>
+    {% endif %}
+  </nav>
+
+  {% if view == 'day' %}
+    <section class="card">
+      {{ timeline(board, by, switch_args={'view': 'day', 'day': day.isoformat()}) }}
+    </section>
+  {% else %}
+    <div class="week-grid">
+      {% for d, items in week %}
+        <section class="card week-day{{ ' is-today' if d == today else '' }}">
+          <h3><a href="{{ url_for('desk.calendar', view='day', day=d.isoformat(), by=by) }}">{{ d|day }}</a></h3>
+          {% if notes[d] %}<p class="muted small">{{ notes[d] }}</p>{% endif %}
+          {% if items %}
+            <p class="small muted">{{ items|length }} booking{{ 's' if items|length != 1 }}</p>
+            <ul class="agenda">
+              {% for item in items %}
+                <li class="agenda-{{ item.status }}">
+                  <a href="{{ url_for('bookings.show', ref=item.ref) }}">
+                    <span class="agenda-time">{{ item.starts_at|local_time(shop.timezone) }}</span>
+                    <strong>{{ item.vehicle.plate }}</strong>
+                    <span class="small">{{ item.lines|map(attribute='name')|join(' + ') }}</span>
+                    <span class="small muted">{{ item.mechanic.name if by == 'mechanic' else item.bay.name }}{% if item.status != 'booked' %} · {{ STATUS_LABELS[item.status] }}{% endif %}</span>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% elif not notes[d] %}
+            <p class="muted small">Nothing booked.</p>
+          {% endif %}
+        </section>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endblock %}

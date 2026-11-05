@@ -11,7 +11,7 @@ example: add sample data here with every new feature (tests/test_demo.py).
 import secrets
 from datetime import time, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from werkzeug.security import generate_password_hash
 
 from . import shops
@@ -183,7 +183,11 @@ def add_bookings(s, shop, people, today, moment):
     with the real slot finder so they never overlap. A day the shop is closed moves
     the booking to the next open day."""
     from . import booking
-    from .models import CANCELLED, Customer, Service, Vehicle
+    from .models import CANCELLED, CHECKED_IN, NO_SHOW, BookedSlot, Customer, Service, Vehicle
+
+    def arrived(appointment, km):
+        appointment.status, appointment.mileage_in = CHECKED_IN, km
+        appointment.checked_in_at = appointment.starts_at - timedelta(minutes=5)
 
     services = {sv.name: sv for sv in s.scalars(select(Service).where(Service.shop_id == shop.id))}
     customers, vehicles = {}, {}
@@ -213,11 +217,25 @@ def add_bookings(s, shop, people, today, moment):
         return None
 
     for name, plate, names, offset, start, source, notes in BOOKINGS:
-        book(name, plate, names, offset, start, source, notes)
-    # Carlo's earlier visit, and one he cancelled.
-    past = book("Carlo Mendoza", "NAB 4821", ["Car PMS"], -40, (8, 0))
-    if past is not None:
-        past.created_at = past.updated_at = past.starts_at - timedelta(days=3)
+        placed = book(name, plate, names, offset, start, source, notes)
+        if placed is not None and placed.starts_at <= moment:  # today's that have started are here already
+            arrived(placed, 21300 + placed.id * 137)
+    # Earlier visits (the customer pages and the Bookings list show history), one no-show,
+    # and one Carlo cancelled.
+    for name, plate, names, offset, start, km in (
+            ("Carlo Mendoza", "NAB 4821", ["Car PMS"], -40, (8, 0), 38250),
+            ("Liza Ramos", "DAF 9022", ["Car Oil Change"], -21, (9, 0), 27910),
+            ("Ben Tan", "NCE 1188", ["Tire Mounting and Balancing"], -12, (13, 0), 61200),
+            ("Joy Villanueva", "456 RTY", ["Motorcycle Oil Change"], -9, (10, 0), 8400),
+            ("Carlo Mendoza", "123 QWE", ["Motorcycle Brake Pads"], -5, (14, 0), 5120)):
+        past = book(name, plate, names, offset, start, source="phone" if km % 2 else "online")
+        if past is not None:
+            past.created_at = past.updated_at = past.starts_at - timedelta(days=3)
+            arrived(past, km)
+    missed = book("Mark Aquino", "ZXA 7745", ["Engine Diagnostics"], -7, (15, 0), source="phone")
+    if missed is not None:
+        s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == missed.id))
+        missed.status, missed.no_show_at = NO_SHOW, missed.starts_at + timedelta(minutes=20)
     cancelled = book("Carlo Mendoza", "NAB 4821", ["Battery Check and Replacement"], 4, (15, 0), status=CANCELLED)
     if cancelled is not None:
         cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, textarea %}
+{% from "_desk.html" import status_pill %}
+{% block title %}{{ person.name }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  {{ back(url_for('desk.customers'), 'Customers') }}
+  <div class="page-head">
+    <div class="title-row"><h1>{{ person.name }}</h1>{% if person.user_id %}<span class="pill">Has an account</span>{% endif %}</div>
+    <a class="button" href="{{ url_for('book.index') }}">New booking</a>
+    <p class="page-sub"><a href="tel:{{ person.phone_key }}">{{ person.phone }}</a>{% if person.email %} · {{ person.email }}{% endif %} · customer since {{ person.created_at|local_moment(shop.timezone) }}</p>
+  </div>
+  <div class="stat-row">
+    <div class="stat card"><p class="stat-label">Visits</p><p class="stat-value">{{ visits }}</p></div>
+    <div class="stat card"><p class="stat-label">Coming Up</p><p class="stat-value">{{ upcoming|length }}</p></div>
+    <div class="stat card"><p class="stat-label">No-shows</p><p class="stat-value">{{ no_shows }}</p></div>
+  </div>
+  <div class="split">
+    <div>
+      <section class="card table-card">
+        <div class="card-head table-title"><h2>Bookings</h2></div>
+        {% if history %}
+          <div class="table-scroll">
+            <table class="table">
+              <thead><tr><th scope="col">When</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Status</th></tr></thead>
+              <tbody>
+                {% for item in history %}
+                  <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}">
+                    <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a></td>
+                    <td>{{ item.vehicle.plate }}</td>
+                    <td>{{ item.lines|map(attribute='name')|join(' + ') }}</td>
+                    <td>{{ status_pill(item.status) }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="muted table-empty">No bookings yet.</p>
+        {% endif %}
+      </section>
+      <section class="card">
+        <h2>Vehicles</h2>
+        <ul class="row-list">
+          {% for vehicle in person.vehicles %}
+            <li>
+              <span class="vehicle-tag vehicle-{{ vehicle.kind }}">{{ 'Car' if vehicle.kind == 'car' else 'Moto' }}</span>
+              <div class="row-main"><strong>{{ vehicle.plate }}</strong><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span></div>
+            </li>
+          {% else %}
+            <li class="muted">No vehicles.</li>
+          {% endfor %}
+        </ul>
+      </section>
+    </div>
+    <section class="card">
+      <h2>Details and Notes</h2>
+      <form method="post" class="stack" data-watch-changes>
+        {{ csrf() }}
+        {{ field('name', 'Name', person.name, errors.name, attrs='required maxlength="80"') }}
+        {{ field('phone', 'Mobile number', person.phone, errors.phone, type='tel', attrs='required') }}
+        {{ field('email', 'Email', person.email, errors.email, type='email') }}
+        {{ textarea('notes', 'Shop notes', person.notes, errors.notes, hint='Only staff see these', rows=5, attrs='maxlength="2000"') }}
+        <div class="form-actions"><button class="button" type="submit">Save</button></div>
+      </form>
+    </section>
+  </div>
+{% endblock %}
