@@ -79,7 +79,7 @@ def test_odd_addresses_dont_break_it(app, client, shop_id):
     assert client.get("/book?vehicle=truck").status_code == 200  # back to step one
     # A motorcycle service on a car is dropped, which leaves nothing chosen: step two.
     page = client.get(f"/book?vehicle=car&service={cvt}&service=abc&service=99999").get_data(as_text=True)
-    assert "Next: pick a day and time" in page
+    assert "Choose an available slot" in page
     oil = service_id(app, shop_id, "Car Oil Change")
     for bad in ("day=not-a-day", "day=1999-01-01", "from=2999-01-01"):
         assert client.get(f"/book?vehicle=car&service={oil}&{bad}").status_code == 200
