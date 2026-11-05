@@ -40,6 +40,11 @@ PAGES = [
     ("calendar-week.png", "/desk/calendar?view=week", "light", DESKTOP, None),
     ("calendar-dark.png", "/desk/calendar?by=mechanic", "dark", DESKTOP, None),
     ("bookings.png", "/desk/bookings", "light", DESKTOP, "Mika Reyes"),
+    ("jobs.png", "/desk/jobs", "light", DESKTOP, None),
+    ("job.png", "job:NAB 4821", "light", DESKTOP, None),
+    ("estimate.png", "estimate:Toyota Vios", "light", DESKTOP, "Carlo Mendoza"),
+    ("parts.png", "/desk/parts", "light", DESKTOP, "Mika Reyes"),
+    ("vehicle.png", "vehicle:NAB 4821", "light", DESKTOP, None),
     ("customer.png", "customer:Carlo Mendoza", "light", DESKTOP, "Mika Reyes"),
     ("settings.png", "/settings", "light", DESKTOP, None),
     ("hours.png", "/settings/hours", "light", DESKTOP, None),
@@ -112,6 +117,20 @@ def main(only=None):
                 if action == "hold":
                     page.locator(".time-chip").first.click()
                     page.wait_for_url("**/book/details/**")
+            elif address.startswith("job:"):
+                page.goto(f"{BASE}/desk/jobs")
+                page.locator(".job-card", has_text=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/jobs/**")
+            elif address.startswith("estimate:"):
+                page.goto(f"{BASE}/garage")
+                page.locator(".in-shop a.row-title", has_text=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/b/**")
+                page.locator("#estimate").scroll_into_view_if_needed()
+            elif address.startswith("vehicle:"):
+                page.goto(f"{BASE}/desk/customers?q={address.split(':', 1)[1]}")
+                page.locator("a.row-title").first.click()
+                page.get_by_role("link", name=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/desk/vehicles/**")
             elif address.startswith("customer:"):
                 page.goto(f"{BASE}/desk/customers")
                 page.get_by_role("link", name=address.split(":", 1)[1]).first.click()

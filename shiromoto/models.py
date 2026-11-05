@@ -13,9 +13,9 @@ Money is whole centavos (int), so 1,250.50 pesos is 125050. Never floats.
 """
 from datetime import date, datetime, time
 
-from sqlalchemy import DDL, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table, \
-    Text, Time, UniqueConstraint, event
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DDL, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, LargeBinary, \
+    String, Table, Text, Time, UniqueConstraint, event
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from .db import Base
 
@@ -248,6 +248,9 @@ class Service(Base):
     price_from: Mapped[int] = mapped_column(Integer, default=0)  # centavos
     position: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # "Do it again after this many months or km, whichever comes first" (PMS, oil). 0 = no reminder.
+    again_months: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    again_km: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     bay_type: Mapped[BayType] = relationship()
     skill: Mapped[Skill | None] = relationship()
@@ -434,3 +437,162 @@ NO_OVERLAP_SQL = [
 ]
 for _statement in NO_OVERLAP_SQL:
     event.listen(Appointment.__table__, "after_create", DDL(_statement).execute_if(dialect="postgresql"))
+
+
+# ---------- Jobs: what happens after check-in (stage 5) ----------
+
+CHECKED, INSPECTING, AWAITING, WORKING, WAITING_PARTS, READY, RELEASED = (
+    "checked_in", "inspecting", "awaiting_approval", "in_progress", "waiting_parts", "ready", "released")
+JOB_LABELS = {CHECKED: "Checked in", INSPECTING: "Inspecting", AWAITING: "Waiting for approval",
+              WORKING: "In progress", WAITING_PARTS: "Waiting for parts", READY: "Ready for pickup",
+              RELEASED: "Released"}
+JOB_ORDER = (CHECKED, INSPECTING, AWAITING, WORKING, WAITING_PARTS, READY, RELEASED)
+
+FUEL_LEVELS = ("Empty", "1/4", "1/2", "3/4", "Full")
+CHECK_OK, CHECK_ATTENTION, CHECK_NOT = "ok", "attention", "not_checked"
+CHECK_LABELS = {CHECK_OK: "OK", CHECK_ATTENTION: "Needs attention", CHECK_NOT: "Not checked"}
+# Looked at and written down when a vehicle comes in, with the customer there.
+CHECK_IN_ITEMS = ("Body: scratches and dents", "Windows and mirrors", "Lights", "Tires and wheels",
+                  "Warning lights on the dashboard", "Items left in the vehicle")
+
+LABOR, PART = "labor", "part"
+PROPOSED, APPROVED, DECLINED = "proposed", "approved", "declined"
+LINE_LABELS = {PROPOSED: "Waiting for approval", APPROVED: "Approved", DECLINED: "Declined"}
+
+
+class Job(Base):
+    """The work on one checked-in visit, from check-in to release. `version` stops two
+    people moving the same job at once (the second save fails)."""
+    __tablename__ = "jobs"
+    __table_args__ = (UniqueConstraint("appointment_id"), NEVER_REUSE_IDS)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String(24), default=CHECKED)
+    fuel_level: Mapped[str] = mapped_column(String(8), default="")
+    promised_at: Mapped[datetime | None] = mapped_column(DateTime)  # when we told the customer it'd be ready
+    released_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = now_column()
+    updated_at: Mapped[datetime] = now_column()
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    __mapper_args__ = {"version_id_col": version}
+
+    appointment: Mapped["Appointment"] = relationship(backref=backref("job", uselist=False))
+    events: Mapped[list["JobEvent"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                    order_by="JobEvent.at")
+    checklist: Mapped[list["ChecklistItem"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                            order_by="ChecklistItem.position")
+    photos: Mapped[list["Photo"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                 order_by="Photo.id")
+    lines: Mapped[list["EstimateLine"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                       order_by="EstimateLine.id")
+
+    def total(self, status=APPROVED):
+        return sum(line.amount for line in self.lines if line.status == status)
+
+
+class JobEvent(Base):
+    """One line on a job's timeline: a status change, a note, a decision. `public` ones
+    are shown to the customer on their booking page."""
+    __tablename__ = "job_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str | None] = mapped_column(String(24))
+    text: Mapped[str] = mapped_column(String(400), default="")
+    public: Mapped[bool] = mapped_column(Boolean, default=True)
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    by: Mapped[User | None] = relationship()
+
+
+class ChecklistItem(Base):
+    __tablename__ = "checklist_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(80))
+    state: Mapped[str] = mapped_column(String(16), default=CHECK_NOT)
+    note: Mapped[str] = mapped_column(String(200), default="")
+
+
+class Photo(Base):
+    """A check-in photo, kept in the database (Render's disk forgets files). Always WebP,
+    at most 1600 px, with the camera's location and other details removed."""
+    __tablename__ = "photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    caption: Mapped[str] = mapped_column(String(120), default="")
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    thumb: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = now_column()
+
+
+class Part(Base):
+    """A part the shop keeps. `stock` only changes through parts.py, which never lets it go below zero."""
+    __tablename__ = "parts"
+    __table_args__ = (UniqueConstraint("shop_id", "name"), CheckConstraint("stock >= 0", name="stock"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    sku: Mapped[str] = mapped_column(String(40), default="")
+    stock: Mapped[int] = mapped_column(Integer, default=0)
+    low_level: Mapped[int] = mapped_column(Integer, default=2)  # at or below this, it's on the low-stock list
+    price: Mapped[int] = mapped_column(Integer, default=0)  # centavos, what the customer pays
+    cost: Mapped[int] = mapped_column(Integer, default=0)  # centavos, what the shop paid
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    @property
+    def is_low(self):
+        return self.stock <= self.low_level
+
+
+class StockMove(Base):
+    """Every change to a part's stock, with why: received, used on a job, or counted."""
+    __tablename__ = "stock_moves"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    change: Mapped[int] = mapped_column(Integer)  # +5 received, -1 used
+    reason: Mapped[str] = mapped_column(String(120))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    part: Mapped[Part] = relationship()
+    by: Mapped[User | None] = relationship()
+
+
+class EstimateLine(Base):
+    """One thing on a job's estimate: labor or a part. The customer approves or declines each one."""
+    __tablename__ = "estimate_lines"
+    __table_args__ = (CheckConstraint("quantity > 0", name="quantity"), CheckConstraint("unit_price >= 0",
+                                                                                         name="unit_price"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))
+    description: Mapped[str] = mapped_column(String(160))
+    reason: Mapped[str] = mapped_column(String(300), default="")  # why it's needed, in plain words
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    unit_price: Mapped[int] = mapped_column(Integer)  # centavos
+    part_id: Mapped[int | None] = mapped_column(ForeignKey("parts.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(12), default=PROPOSED)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decided_by: Mapped[str] = mapped_column(String(80), default="")  # "the customer" or a staff name
+    stock_taken: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = now_column()
+
+    part: Mapped[Part | None] = relationship()
+
+    @property
+    def amount(self):
+        return self.quantity * self.unit_price

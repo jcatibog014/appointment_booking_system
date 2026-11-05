@@ -77,6 +77,7 @@ def show(ref):
         "booking.html", appointment=appointment, link=manage_link(appointment), can_change=can_change,
         starts=to_local(appointment.starts_at, shop.timezone), ends=to_local(appointment.ends_at, shop.timezone),
         staff_view=by_staff(), public_page=not by_staff(), mine=mine, now=now,
+        decide_url=lambda line: url_for("bookings.decide", ref=appointment.ref, line_id=line.id),
         can_save=g.user is not None and g.user.role == "customer" and appointment.customer.user_id is None)
 
 
@@ -185,7 +186,8 @@ def check_in(ref):
     mileage = request.form.get("mileage", "").replace(",", "").strip()
     km = int(mileage) if mileage.isdigit() and int(mileage) < 2_000_000 else None
     return desk_action(ref, lambda s, a: booking.check_in(s, shops.current(), a, utcnow(),
-                                                          request.form.get("version", type=int), km),
+                                                          request.form.get("version", type=int), km, by=g.user,
+                                                          fuel=request.form.get("fuel", "")),
                        lambda a: f"{a.customer.name} is checked in ({a.vehicle.plate}).")
 
 
@@ -201,3 +203,23 @@ def undo_no_show(ref):
     return desk_action(ref, lambda s, a: booking.undo_no_show(s, shops.current(), a, utcnow(),
                                                               request.form.get("version", type=int)),
                        lambda a: f"{a.customer.name} came after all: {a.ref} is booked again.")
+
+
+@bp.post("/<ref>/estimate/<int:line_id>")
+def decide(ref, line_id):
+    """The customer approves or declines one line of their job's estimate."""
+    from .. import jobs
+    appointment = open_booking(ref)
+    job = appointment.job
+    if job is None:
+        abort(404)
+    s = db.session()
+    approve = request.form.get("decision") == "approve"
+    try:
+        line = jobs.decide(s, job, line_id, approve, utcnow(), "the customer")
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        flash(f"{'Approved' if approve else 'Declined'}: {line.description}. Thank you!")
+    return redirect(url_for("bookings.show", ref=appointment.ref) + "#estimate")

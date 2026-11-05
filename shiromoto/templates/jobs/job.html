@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, select, textarea %}
+{% from "_job.html" import checklist_view, estimate, events, job_pill, photo_grid, progress with context %}
+{% block title %}Job {{ appointment.vehicle.plate }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  {{ back(url_for('jobs.board'), 'Jobs') }}
+  <div class="page-head">
+    <div class="title-row"><h1>{{ appointment.vehicle.plate }}</h1>{{ job_pill(job.status) }}</div>
+    <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Booking {{ appointment.ref }}</a>
+    <p class="page-sub">{{ appointment.vehicle.label }} · {{ appointment.customer.name }} · <a href="tel:{{ appointment.customer.phone_key }}">{{ appointment.customer.phone }}</a>
+      · {{ appointment.mechanic.name }} · {{ appointment.bay.name }}{% if appointment.mileage_in %} · {{ '{:,}'.format(appointment.mileage_in) }} km{% endif %}</p>
+  </div>
+
+  <section class="card">
+    {{ progress(job) }}
+    {% if moves %}
+      <form method="post" action="{{ url_for('jobs.move', job_id=job.id) }}" class="filter-bar plain move-job">
+        {{ csrf() }}
+        <input type="hidden" name="version" value="{{ job.version }}">
+        <label class="field grow"><span class="field-label">Note for the customer <span class="hint">Optional</span></span><input name="note" maxlength="200" placeholder="Like: ready after 3 PM"></label>
+        <div class="filter-actions">
+          {% for status in moves %}
+            <button class="button{{ '' if loop.first else ' button-quiet' }}" type="submit" name="status" value="{{ status }}">{{ JOB_LABELS[status] }}</button>
+          {% endfor %}
+        </div>
+      </form>
+    {% endif %}
+    <p class="muted small">Services booked: {{ appointment.lines|map(attribute='name')|join(' + ') }} (from {{ appointment.price_from|peso }}).{% if appointment.notes %} Customer's note: “{{ appointment.notes }}”{% endif %}</p>
+  </section>
+
+  <section class="card" id="estimate">
+    <h2>Estimate</h2>
+    {{ estimate(job, decide_url, staff=True) }}
+    {% for line in job.lines if line.status == 'proposed' %}
+      {% if loop.first %}<p class="small muted">The customer approves from their booking page. If they say yes or no on the phone, use the buttons above.</p>{% endif %}
+      <form method="post" action="{{ url_for('jobs.remove_line', job_id=job.id, line_id=line.id) }}" class="inline-action">
+        {{ csrf() }}<button class="link-button small" type="submit">Remove “{{ line.description }}”</button>
+      </form>
+    {% endfor %}
+    {% for line in job.lines if line.status == 'approved' and line.part_id and not line.stock_taken %}
+      <form method="post" action="{{ url_for('jobs.take_part', job_id=job.id, line_id=line.id) }}" class="inline-action">
+        {{ csrf() }}<button class="button button-small button-quiet" type="submit">The part is here: take {{ line.quantity }} from stock</button>
+      </form>
+    {% endfor %}
+    {% if job.status not in ('ready', 'released') %}
+      <details class="add-line"{% if not job.lines %} open{% endif %}>
+        <summary>Add work or a part</summary>
+        <form method="post" action="{{ url_for('jobs.add_line', job_id=job.id) }}" class="stack">
+          {{ csrf() }}
+          <div class="form-grid">
+            {{ select('kind', 'Kind', [('labor', 'Labor'), ('part', 'Part')], 'labor') }}
+            {{ select('part_id', 'Part from stock', [('', 'None (labor, or a part we order)')] + part_options, '', hint='Its price fills in by itself') }}
+            {{ field('description', 'What', hint='Like: Replace front brake pads', attrs='maxlength="160"') }}
+            {{ field('quantity', 'Quantity', '1', attrs='inputmode="numeric"') }}
+            {{ field('unit_price', 'Price each (₱)', hint='Empty: the part\'s price', attrs='inputmode="decimal"') }}
+          </div>
+          {{ textarea('reason', 'Why it\'s needed', hint='In plain words: the customer reads this', rows=2, attrs='maxlength="300"') }}
+          <div class="form-actions"><button class="button" type="submit">Add to estimate</button></div>
+        </form>
+      </details>
+    {% endif %}
+  </section>
+
+  <div class="split">
+    <div>
+      <section class="card">
+        <h2>Check-in Checklist</h2>
+        <form method="post" action="{{ url_for('jobs.checklist', job_id=job.id) }}" class="stack" data-watch-changes>
+          {{ csrf() }}
+          <input type="hidden" name="version" value="{{ job.version }}">
+          {{ select('fuel', 'Fuel', [('', 'Not noted')] + fuel_options, job.fuel_level) }}
+          <table class="table compact checklist-table">
+            <tbody>
+              {% for item in job.checklist %}
+                <tr>
+                  <th scope="row">{{ item.label }}</th>
+                  <td>
+                    <fieldset class="check-states plain-fieldset">
+                      <legend class="visually-hidden">{{ item.label }}</legend>
+                      {% for state, label in check_labels.items() %}
+                        <label class="check"><input type="radio" name="state-{{ item.id }}" value="{{ state }}"{% if item.state == state %} checked{% endif %}> {{ label }}</label>
+                      {% endfor %}
+                    </fieldset>
+                  </td>
+                  <td><label class="visually-hidden" for="note-{{ item.id }}">Note on {{ item.label }}</label><input class="control" id="note-{{ item.id }}" name="note-{{ item.id }}" value="{{ item.note }}" maxlength="200" placeholder="Note"></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          <div class="form-actions"><button class="button" type="submit">Save checklist</button></div>
+        </form>
+      </section>
+    </div>
+
+    <div>
+      <section class="card">
+        <h2>Photos</h2>
+        {{ photo_grid(job, can_delete=True) }}
+        <form method="post" action="{{ url_for('jobs.add_photo', job_id=job.id) }}" enctype="multipart/form-data" class="stack">
+          {{ csrf() }}
+          <label class="field"><span class="field-label">Add a photo <span class="hint">JPEG, PNG or WebP, up to 5 MB</span></span>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" capture="environment" required></label>
+          {{ field('caption', 'Caption', hint='Like: Scratch on the rear bumper', attrs='maxlength="120"') }}
+          <div class="form-actions"><button class="button button-quiet" type="submit">Upload photo</button></div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Timeline</h2>
+        <form method="post" action="{{ url_for('jobs.note', job_id=job.id) }}" class="stack">
+          {{ csrf() }}
+          {{ textarea('text', 'Add a note', rows=2, attrs='maxlength="400" required') }}
+          <div class="form-actions">
+            <label class="check"><input type="checkbox" name="public" value="1"> The customer can see it</label>
+            <button class="button button-quiet" type="submit">Add note</button>
+          </div>
+        </form>
+        {{ events(job, public_only=False) }}
+      </section>
+    </div>
+  </div>
+{% endblock %}

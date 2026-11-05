@@ -19,6 +19,10 @@
         {{ select('buffer_minutes', 'Clean-up after', buffer_options, service.buffer_minutes, errors.buffer_minutes) }}
         {{ select('skill_id', 'Mechanic skill', [('', 'Any mechanic')] + skill_options, service.skill_id or '', errors.skill_id) }}
       </div>
+      <div class="form-grid">
+        {{ field('again_months', 'Remind again after (months)', service.again_months or '', errors.again_months, hint='Empty for no reminder', attrs='inputmode="numeric"') }}
+        {{ field('again_km', 'or after (km)', service.again_km or '', errors.again_km, hint='Whichever comes first', attrs='inputmode="numeric"') }}
+      </div>
       {{ textarea('description', 'Description', service.description, errors.description, hint='Shown on the price list', rows=3, attrs='maxlength="600"') }}
       <label class="check"><input type="checkbox" name="is_active" value="1"{% if service.is_active %} checked{% endif %}> Customers can book it</label>
       <div class="form-actions">

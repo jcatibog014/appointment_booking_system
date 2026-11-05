@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 {% from "_macros.html" import back, csrf, field %}
 {% from "_desk.html" import actions with context %}
+{% from "_job.html" import checklist_view, estimate, events, job_pill, photo_grid, progress with context %}
 {% block title %}Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="narrow">
@@ -55,6 +56,33 @@
       {% endif %}
     </section>
 
+    {% set job = appointment.job %}
+    {% if job %}
+      <section class="card">
+        <div class="card-head">
+          <h2>{{ 'The Job' if staff_view else 'Your Vehicle' }}</h2>
+          {% if staff_view %}<a class="button button-small" href="{{ url_for('jobs.show', job_id=job.id) }}">Open the job</a>{% else %}{{ job_pill(job.status) }}{% endif %}
+        </div>
+        {{ progress(job) }}
+        {% if job.promised_at %}<p>We expect it ready by <strong>{{ job.promised_at|local_moment(shop.timezone) }}</strong>.</p>{% endif %}
+        {{ events(job) }}
+      </section>
+      <section class="card" id="estimate">
+        <h2>Estimate</h2>
+        {% if not staff_view and job.lines|selectattr('status', 'equalto', 'proposed')|list %}
+          <p class="call-note">Our mechanic found something. Please approve or decline each line. We only do what you approve.</p>
+        {% endif %}
+        {{ estimate(job, decide_url if not staff_view else none) }}
+      </section>
+      {% if job.photos or job.checklist|rejectattr('state', 'equalto', 'not_checked')|list or job.fuel_level %}
+        <section class="card">
+          <h2>At Check-in</h2>
+          {{ checklist_view(job) }}
+          {{ photo_grid(job) }}
+        </section>
+      {% endif %}
+    {% endif %}
+
     {% if staff_view and g.user.role in ('owner', 'advisor') and appointment.status in ('booked', 'no_show') %}
       <section class="card desk-actions">
         <h2>Front Desk</h2>
@@ -63,6 +91,7 @@
             {{ csrf() }}
             <input type="hidden" name="version" value="{{ appointment.version }}">
             <label class="field"><span class="field-label">Odometer <span class="hint">Optional, in km</span></span><input name="mileage" inputmode="numeric" maxlength="9"></label>
+            <label class="field"><span class="field-label">Fuel</span><select name="fuel"><option value="">Not noted</option>{% for level in ('Empty', '1/4', '1/2', '3/4', 'Full') %}<option>{{ level }}</option>{% endfor %}</select></label>
             <div class="filter-actions"><button class="button" type="submit">Check in</button></div>
           </form>
         {% endif %}

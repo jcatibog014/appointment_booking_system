@@ -55,6 +55,11 @@ SERVICES = [
 ]
 
 
+# Do it again after (months, km), whichever comes first: for the "next PMS due" reminder.
+AGAIN = {"Car PMS": (6, 5000), "Car Oil Change": (4, 5000), "Motorcycle PMS": (4, 3000),
+         "Motorcycle Oil Change": (2, 1500), "CVT Cleaning": (6, 6000), "Aircon Cleaning": (12, 0)}
+
+
 def add_catalog(s, shop):
     """Bay types, skills and services. Returns ({bay type name: BayType}, {skill name: Skill})."""
     bay_types = {name: BayType(shop_id=shop.id, name=name, vehicle_kind=kind) for name, kind in BAY_TYPES}
@@ -65,7 +70,7 @@ def add_catalog(s, shop):
         s.add(Service(shop_id=shop.id, name=name, category=category, vehicle_kind=kind, work_minutes=work,
                       buffer_minutes=buffer, bay_type_id=bay_types[bay_type].id,
                       skill_id=skills[skill].id if skill else None, price_from=pesos * 100, description=text,
-                      position=position))
+                      position=position, again_months=AGAIN.get(name, (0, 0))[0], again_km=AGAIN.get(name, (0, 0))[1]))
     return bay_types, skills
 
 
@@ -208,18 +213,29 @@ def add_bookings(s, shop, people, today, moment):
     s.flush()
 
     def book(name, plate, names, offset, start, source="online", notes="", status="booked"):
-        for extra in range(10):  # the next day the shop is open, if that day is closed
+        # A closed day moves the booking to the next open day (or, in the past, the one before).
+        step = -1 if offset < 0 else 1
+        for extra in range(10):
             placed = booking.place(s, shop, [services[n] for n in names], vehicles[plate], customers[name],
-                                   today + timedelta(days=offset + extra), start[0] * 60 + start[1], moment,
+                                   today + timedelta(days=offset + step * extra), start[0] * 60 + start[1], moment,
                                    source=source, notes=notes, status=status)
             if placed is not None:
                 return placed
         return None
 
+    live = {}
     for name, plate, names, offset, start, source, notes in BOOKINGS:
         placed = book(name, plate, names, offset, start, source, notes)
         if placed is not None and placed.starts_at <= moment:  # today's that have started are here already
             arrived(placed, 21300 + placed.id * 137)
+            live[plate] = placed
+    # Carlo's car came in on the last open day and is still here, waiting for his
+    # approval: the customer's View As shows an estimate to approve.
+    waiting = book("Carlo Mendoza", "NAB 4821", ["Brake Service"], -1, (13, 0), source="online",
+                   notes="Grinding noise from the front.")
+    if waiting is not None:
+        arrived(waiting, 41870)
+        live["waiting"] = waiting
     # Earlier visits (the customer pages and the Bookings list show history), one no-show,
     # and one Carlo cancelled.
     for name, plate, names, offset, start, km in (
@@ -232,6 +248,7 @@ def add_bookings(s, shop, people, today, moment):
         if past is not None:
             past.created_at = past.updated_at = past.starts_at - timedelta(days=3)
             arrived(past, km)
+            live[f"past-{past.id}"] = past
     missed = book("Mark Aquino", "ZXA 7745", ["Engine Diagnostics"], -7, (15, 0), source="phone")
     if missed is not None:
         s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == missed.id))
@@ -239,4 +256,91 @@ def add_bookings(s, shop, people, today, moment):
     cancelled = book("Carlo Mendoza", "NAB 4821", ["Battery Check and Replacement"], 4, (15, 0), status=CANCELLED)
     if cancelled is not None:
         cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)
+    s.flush()
+    add_jobs(s, shop, people, live, moment)
+
+
+# (name, code, stock, low at, price, cost) in pesos
+PARTS = [
+    ("Engine oil 10W-40, 1 L", "OIL-1040", 24, 8, 420, 290),
+    ("Oil filter (Toyota Vios)", "OF-VIOS", 6, 2, 380, 240),
+    ("Front brake pads (Toyota Vios)", "BP-VIOS-F", 4, 2, 2200, 1450),
+    ("Brake fluid DOT 4, 500 ml", "BF-DOT4", 1, 3, 450, 260),
+    ("Air filter (Mitsubishi Mirage)", "AF-MIRAGE", 2, 1, 650, 400),
+    ("Wiper blade 22 in", "WB-22", 3, 2, 550, 310),
+    ("Spark plug (Honda Click 125i)", "SP-CLICK", 0, 2, 320, 180),
+    ("CVT belt (Yamaha NMAX)", "CVT-NMAX", 1, 1, 1650, 1050),
+]
+
+
+def add_jobs(s, shop, people, live, moment):
+    """Parts in stock, and a job for every checked-in sample visit, at different steps."""
+    from . import jobs
+    from .models import (APPROVED, AWAITING, CHECK_ATTENTION, CHECK_OK, DECLINED, INSPECTING, LABOR, PART, READY,
+                         RELEASED, WORKING, EstimateLine, JobEvent, Part, StockMove)
+
+    parts = {}
+    for name, code, stock, low, price, cost in PARTS:
+        part = Part(shop_id=shop.id, name=name, sku=code, stock=stock, low_level=low, price=price * 100,
+                    cost=cost * 100)
+        s.add(part)
+        parts[code] = part
+    s.flush()
+    used = {}  # part id -> how many the sample jobs took, so the delivery adds up to today's stock
+
+    def line(job, kind, text, qty, price, status, part=None, reason="", who="the customer"):
+        item = EstimateLine(job_id=job.id, kind=kind, description=text, quantity=qty, unit_price=price * 100,
+                            part_id=part.id if part else None, status=status, reason=reason,
+                            decided_at=job.created_at + timedelta(minutes=50) if status != "proposed" else None,
+                            decided_by=who if status != "proposed" else "", stock_taken=bool(part)
+                            and status == APPROVED, created_at=job.created_at + timedelta(minutes=30))
+        s.add(item)
+        if part and status == APPROVED:
+            used[part.id] = used.get(part.id, 0) + qty
+            s.add(StockMove(part_id=part.id, job_id=job.id, change=-qty, reason=f"Used on job #{job.id}",
+                            at=item.created_at + timedelta(minutes=25)))
+        return item
+
+    def step(job, status, minutes_after, text=None):
+        job.status = status
+        job.events.append(JobEvent(at=job.created_at + timedelta(minutes=minutes_after), status=status,
+                                   text=text or jobs.PUBLIC_TEXT[status], by_id=job.appointment.mechanic_id))
+
+    for key, visit in live.items():
+        job = jobs.open_job(s, visit, visit.checked_in_at, people["mika"], fuel="1/2")
+        for item in job.checklist:
+            item.state = CHECK_OK
+        if key == "waiting":
+            job.checklist[0].state, job.checklist[0].note = CHECK_ATTENTION, "Small scratch on the rear bumper"
+            step(job, INSPECTING, 20)
+            step(job, AWAITING, 45, "Front rotors are worn and the brake fluid is dark. " + jobs.PUBLIC_TEXT[AWAITING])
+            line(job, PART, "Front brake pads (Toyota Vios)", 1, 2200, APPROVED, parts["BP-VIOS-F"],
+                 "The pads are down to 2 mm.")
+            line(job, LABOR, "Resurface the front rotors", 1, 1200, "proposed",
+                 reason="They have grooves, so new pads would wear fast and squeak.")
+            line(job, PART, "Brake fluid DOT 4, 500 ml", 1, 450, "proposed", parts["BF-DOT4"],
+                 reason="The fluid is dark and should be changed every 2 years.")
+            job.events.append(JobEvent(at=job.created_at + timedelta(minutes=55),
+                                       text="Customer asked us to call before 5 PM.", public=False,
+                                       by_id=people["mika"].id))
+        elif key == "DAF 9022":
+            step(job, WORKING, 25)
+            line(job, PART, "Air filter (Mitsubishi Mirage)", 1, 650, APPROVED, parts["AF-MIRAGE"],
+                 "The filter is clogged with dust.")
+            line(job, PART, "Wiper blade 22 in", 2, 550, DECLINED, parts["WB-22"], "The rubber is cracked.")
+        elif key == "456 RTY":
+            step(job, WORKING, 10)
+            step(job, READY, 55)
+        elif key.startswith("past-"):
+            step(job, WORKING, 15)
+            if visit.vehicle.kind == "car" and "PMS" in visit.lines[0].name:
+                line(job, PART, "Engine oil 10W-40, 1 L", 4, 420, APPROVED, parts["OIL-1040"], "For the oil change.")
+            step(job, READY, 150)
+            step(job, RELEASED, 190)
+            job.released_at = job.created_at + timedelta(minutes=190)
+        else:
+            step(job, INSPECTING, 15)
+    for part in parts.values():
+        s.add(StockMove(part_id=part.id, change=part.stock + used.get(part.id, 0), reason="Delivery from the supplier",
+                        at=moment - timedelta(days=45), by_id=people["mika"].id))
     s.flush()

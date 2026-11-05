@@ -61,6 +61,12 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - The timeline is a CSS grid with one column per quarter hour. Blocks use the generated `gs-N`/`ge-N` classes (no inline styles under the CSP; rules 1–98 at the end of `style.css`).
   - Desk macros are imported `with context` (they use `shop`).
   - Migration 0003 recreates the PostgreSQL exclusion constraints to count only live statuses.
+- **Jobs (`jobs.py`)** start at check-in (`booking.check_in` calls `open_job` in the same transaction) and only move along `MOVES`. Always call `check_version` BEFORE changing a job: reading a relationship autoflushes and bumps the version.
+  - `decide` is a conditional UPDATE (`WHERE status = 'proposed'`), so a line is decided once.
+  - An approved part calls `take_from_stock` (`UPDATE ... WHERE stock >= n`) in the same transaction. If it's short, the job goes to Waiting for parts, and `take_now` retries.
+  - `parts.stock` also has a CHECK (>= 0). `receive` changes stock and writes a `StockMove`.
+  - Photos (`photos.py`, Pillow) are re-encoded to WebP (max 1600 px, plus a thumbnail) without EXIF, and stored in the DB. `/photos/<id>` is for staff or whoever can open the booking.
+  - `next_due` uses `Service.again_months`/`again_km`. `add_months` clamps the day (31 Jan + 1 month = 28/29 Feb).
 - **Booking pages:** `/b/<ref>` opens with the manage link (`?t=`; only its SHA-256 is stored, and it is remembered in `session["bookings"]`, which survives logging in), for the customer it belongs to, or for staff. Everyone else gets 404. Customers can change a booking until `cancel_cutoff_hours` before it; staff always can. `calendar_file.py` writes the .ics by hand (TZID + VTIMEZONE, escaping, 75-byte folding).
 - **The Book page (`views/book.py`)** keeps the first steps as GETs, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.

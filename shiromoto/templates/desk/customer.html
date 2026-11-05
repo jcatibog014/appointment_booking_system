@@ -44,7 +44,7 @@
           {% for vehicle in person.vehicles %}
             <li>
               <span class="vehicle-tag vehicle-{{ vehicle.kind }}">{{ 'Car' if vehicle.kind == 'car' else 'Moto' }}</span>
-              <div class="row-main"><strong>{{ vehicle.plate }}</strong><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span></div>
+              <div class="row-main"><a class="row-title" href="{{ url_for('jobs.vehicle', vehicle_id=vehicle.id) }}">{{ vehicle.plate }}</a><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span></div>
             </li>
           {% else %}
             <li class="muted">No vehicles.</li>

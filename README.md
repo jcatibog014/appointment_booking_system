@@ -21,6 +21,23 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
 
+## Jobs, Estimates and Parts (Stage 5)
+
+Check-in opens a **job**. It moves along one road, and each step is written on a timeline the customer can read:
+
+```
+Checked in → Inspecting → Waiting for approval → In progress → Ready for pickup → Released
+                                                    ↕
+                                            Waiting for parts
+```
+
+- **Check-in checklist:** fuel level, body, glass, lights, tires, warning lights and items left inside, plus **photos**. Every photo is made smaller and saved as WebP, and its hidden camera data (like the GPS position) is removed.
+- **Estimates:** the mechanic adds work or parts with a reason in plain words. The customer **approves or declines each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
+- **Only one decision counts.** A line changes only while it is still "waiting" (`UPDATE ... WHERE status = 'proposed'`). If the customer and the front desk press at the same moment, the second one is told it was already decided.
+- **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list.
+- **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
+- **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
+
 ## The Front Desk (Stage 4)
 
 - **Today** shows **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes. You can see the bookings, the times someone is booking right now, lunch, and a red line for "now". Under it is **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
@@ -128,7 +145,6 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 | Stage | What it adds |
 |---|---|
-| 5 | Jobs: status, checklist and photos, estimates the customer approves, parts and stock |
 | 6 | Email, reminders, waitlist, and an app for your phone |
 | 7 | Insights: busy hours, bay use, no-shows and money |
 | 8 | Demo, pictures and going online |
@@ -150,7 +166,9 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | ![My Garage](docs/screenshots/garage.png) My Garage | ![Make an account](docs/screenshots/signup.png) Make an account |
 | ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
 | ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Every booking, with search](docs/screenshots/bookings.png) Bookings |
-| ![A customer's page](docs/screenshots/customer.png) A customer | |
+| ![A customer's page](docs/screenshots/customer.png) A customer | ![The Jobs board](docs/screenshots/jobs.png) Jobs board |
+| ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves |
+| ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |
 
 All people in these pictures are made up. They come from Try Demo.
 

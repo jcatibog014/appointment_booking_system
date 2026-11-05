@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field %}
+{% block title %}{{ item.name }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  {{ back(url_for('jobs.parts'), 'Parts') }}
+  <div class="page-head">
+    <div class="title-row"><h1>{{ item.name }}</h1>{% if item.is_low %}<span class="pill pill-no_show">Low stock</span>{% endif %}</div>
+    <p class="page-sub">{{ item.sku or 'No code' }} · price {{ item.price|peso }} · cost {{ item.cost|peso }}</p>
+  </div>
+  <div class="stat-row">
+    <div class="stat card"><p class="stat-label">In Stock</p><p class="stat-value">{{ item.stock }}</p><p class="muted small">Order at {{ item.low_level }}</p></div>
+  </div>
+  <div class="split">
+    <section class="card table-card">
+      <div class="card-head table-title"><h2>Stock Changes</h2></div>
+      {% if moves %}
+        <div class="table-scroll">
+          <table class="table">
+            <thead><tr><th scope="col">When</th><th scope="col" class="num">Change</th><th scope="col">Why</th><th scope="col">Who</th></tr></thead>
+            <tbody>
+              {% for move in moves %}
+                <tr>
+                  <td>{{ move.at|local_moment(shop.timezone) }}</td>
+                  <td class="num">{{ '+' if move.change > 0 }}{{ move.change }}</td>
+                  <td>{% if move.job_id %}<a href="{{ url_for('jobs.show', job_id=move.job_id) }}">{{ move.reason }}</a>{% else %}{{ move.reason }}{% endif %}</td>
+                  <td>{{ move.by.name if move.by else 'The customer\'s approval' }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted table-empty">No changes yet.</p>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2>Receive or Count</h2>
+      <form method="post" class="stack">
+        {{ csrf() }}
+        {{ field('change', 'Change', '', hint='+10 for a delivery, -2 after counting', attrs='inputmode="numeric" required') }}
+        {{ field('reason', 'Why', hint='Like: Delivery from the supplier', attrs='maxlength="120"') }}
+        <div class="form-actions"><button class="button" type="submit">Save</button></div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

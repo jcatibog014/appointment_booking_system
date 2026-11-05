@@ -17,10 +17,12 @@
       <ul class="nav-links">
         {{ link('desk.today', 'Today', request.endpoint == 'desk.today') }}
         {{ link('desk.calendar', 'Calendar', request.endpoint == 'desk.calendar') }}
+        {{ link('jobs.board', 'Jobs', request.endpoint in ('jobs.board', 'jobs.show')) }}
         {{ link('book.index', 'Free Times', section == 'book') }}
         {% if g.user.role in ('owner', 'advisor') %}
           {{ link('desk.bookings', 'Bookings', request.endpoint == 'desk.bookings' or section == 'bookings') }}
-          {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer')) }}
+          {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer', 'jobs.vehicle')) }}
+          {{ link('jobs.parts', 'Parts', request.endpoint in ('jobs.parts', 'jobs.part')) }}
         {% endif %}
         {{ link('public.home', 'Shop Website', section == 'public') }}
       </ul>

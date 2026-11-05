@@ -69,7 +69,7 @@
                 <td>{{ item.vehicle.label }}</td>
                 <td>{{ item.lines|map(attribute='name')|join(' + ') }}</td>
                 <td>{{ item.mechanic.name }} · {{ item.bay.name }}</td>
-                <td>{{ status_pill(item.status) }}</td>
+                <td>{{ status_pill(item.status) }}{% if item.job %} <a class="small" href="{{ url_for('jobs.show', job_id=item.job.id) }}">{{ JOB_LABELS[item.job.status] }}</a>{% endif %}</td>
                 {% if can_act %}<td class="num actions-cell">{{ actions(item, now) }}</td>{% endif %}
               </tr>
             {% endfor %}

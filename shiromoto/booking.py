@@ -449,8 +449,10 @@ def quarter_floor(moment):
     return moment.replace(minute=moment.minute - moment.minute % slots.STEP, second=0, microsecond=0)
 
 
-def check_in(s, shop, appointment, now, version=None, mileage=None):
-    """The vehicle is here. Allowed from 2 hours before the start until the booking ends."""
+def check_in(s, shop, appointment, now, version=None, mileage=None, by=None, fuel=""):
+    """The vehicle is here. Allowed from 2 hours before the start until the booking ends.
+    It opens the job (jobs.py) in the same transaction."""
+    from .jobs import open_job
     if appointment.status != BOOKED:
         raise BookingError("Only a booked visit can be checked in.")
     if version is not None and version != appointment.version:
@@ -462,6 +464,8 @@ def check_in(s, shop, appointment, now, version=None, mileage=None):
     try:
         appointment.status, appointment.checked_in_at, appointment.updated_at = CHECKED_IN, now, now
         appointment.mileage_in = mileage
+        s.flush()
+        open_job(s, appointment, now, by, fuel)
         s.commit()
     except StaleDataError as error:
         s.rollback()
