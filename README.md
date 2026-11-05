@@ -21,6 +21,15 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
 
+## Insights (Stage 7)
+
+For the owner, over the last 7, 30 or 90 days:
+- **Tiles:** bookings, expected money (the booked services' starting prices plus the extra work customers approved), work done, bay use, the no-show rate and the cancel rate.
+- **Bookings per day** (columns), and **busiest hours** (a weekday × hour grid: a stronger colour means busier).
+- **Bay use:** booked time as a share of the open hours, without breaks and closed days, per bay.
+- **Money by service and by mechanic**, how people booked (online, phone, walk-in), and why bookings were cancelled.
+- Every chart has a **Show as a table** view, and a small tip on hover. The colours were checked with a colour validator for both light and dark mode. Dark mode has its own steps: there, a busier hour is lighter.
+
 ## Notices, the Waitlist and the Phone App (Stage 6)
 
 **Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
@@ -169,7 +178,6 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 | Stage | What it adds |
 |---|---|
-| 7 | Insights: busy hours, bay use, no-shows and money |
 | 8 | Demo, pictures and going online |
 
 ## Pictures
@@ -193,7 +201,8 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 | ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves |
 | ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |
 | ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist | ![The waitlist at the desk](docs/screenshots/waitlist.png) The waitlist, for staff |
-| ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | |
+| ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Insights](docs/screenshots/insights.png) Insights |
+| ![Busiest hours and bay use, in dark mode](docs/screenshots/insights-dark.png) Busiest hours and bay use, dark mode | |
 
 All people in these pictures are made up. They come from Try Demo.
 

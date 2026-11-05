@@ -270,7 +270,27 @@ function setUpPush() {
   }
 }
 
+// Charts: a small tip follows the pointer over a bar or a heatmap cell (the table view has every number).
+function setUpChartTips() {
+  const tip = document.querySelector("[data-chart-tip]");
+  if (!tip) return;
+  const show = (event) => {
+    const target = event.target.closest("[data-tip]");
+    if (!target) {
+      tip.hidden = true;
+      return;
+    }
+    tip.textContent = target.dataset.tip;
+    tip.hidden = false;
+    tip.style.left = `${Math.min(event.clientX + 14, window.innerWidth - tip.offsetWidth - 8)}px`;
+    tip.style.top = `${event.clientY + 16}px`;
+  };
+  document.addEventListener("pointermove", show);
+  document.addEventListener("pointerleave", () => { tip.hidden = true; });
+}
+
 setUpTheme();
+setUpChartTips();
 setUpServiceWorker();
 setUpInstall();
 setUpPush();

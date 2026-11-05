@@ -220,3 +220,15 @@ def customer(customer_id):
                            upcoming=[h for h in history if h.status in LIVE_STATUSES and h.ends_at > now],
                            visits=sum(h.status in (CHECKED_IN, BOOKED) and h.ends_at <= now for h in history),
                            no_shows=sum(h.status == NO_SHOW for h in history)), 400 if errors else 200
+
+
+# ---------- Insights (the owner) ----------
+
+@bp.get("/insights")
+@roles_required(OWNER)
+def insights():
+    from .. import insights as numbers
+    days = request.args.get("days", type=int)
+    days = days if days in numbers.PERIODS else 30
+    data = numbers.build(db.session(), shops.current(), days, utcnow())
+    return render_template("desk/insights.html", data=data, periods=numbers.PERIODS)

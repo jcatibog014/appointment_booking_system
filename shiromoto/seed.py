@@ -15,7 +15,7 @@ from sqlalchemy import delete, select
 from werkzeug.security import generate_password_hash
 
 from . import shops
-from .dates import local_today
+from .dates import local_today, to_local
 from .models import ADVISOR, CAR, CLOSED, CUSTOMER, LEAVE, MECHANIC, MOTO, OWNER, Bay, BayType, Closure, \
     Service, Shop, Skill, StaffHours, User
 
@@ -257,6 +257,7 @@ def add_bookings(s, shop, people, today, moment):
     if cancelled is not None:
         cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)
     s.flush()
+    add_history(s, shop, today, moment, book, arrived, live)
     add_jobs(s, shop, people, live, moment)
     # Two people on the waitlist: the timer offers them the next free time.
     from .models import WaitlistEntry
@@ -280,6 +281,49 @@ PARTS = [
     ("Spark plug (Honda Click 125i)", "SP-CLICK", 0, 2, 320, 180),
     ("CVT belt (Yamaha NMAX)", "CVT-NMAX", 1, 1, 1650, 1050),
 ]
+
+
+# Four weeks of everyday visits, so Insights has something to show: (customer, plate, service).
+EVERYDAY = [
+    ("Liza Ramos", "DAF 9022", "Car Oil Change"), ("Ben Tan", "NCE 1188", "Brake Service"),
+    ("Mark Aquino", "ZXA 7745", "Car PMS"), ("Joy Villanueva", "456 RTY", "Motorcycle PMS"),
+    ("Carlo Mendoza", "123 QWE", "CVT Cleaning"), ("Liza Ramos", "DAF 9022", "Wheel Alignment"),
+    ("Ben Tan", "NCE 1188", "Engine Diagnostics"), ("Joy Villanueva", "456 RTY", "Motorcycle Tire Change"),
+    ("Mark Aquino", "ZXA 7745", "Battery Check and Replacement"), ("Carlo Mendoza", "NAB 4821", "Aircon Cleaning"),
+]
+HISTORY_DAYS = 28
+
+
+def add_history(s, shop, today, moment, book, arrived, live):
+    """Two to four visits on each open day of the last four weeks, at busy morning and
+    after-lunch hours, placed by the real slot finder. A fixed random seed makes every
+    demo the same. About 1 in 12 is a no-show and 1 in 10 was cancelled."""
+    import random
+
+    from .models import CANCELLED, NO_SHOW, BookedSlot
+    pick = random.Random(20261105)
+    reasons = ["Car sold", "Changed my plans", "Fixed it at home", "Found an earlier time"]
+    for back in range(2, HISTORY_DAYS + 1):
+        for _ in range(pick.choice((2, 3, 3, 4))):
+            name, plate, service = pick.choice(EVERYDAY)
+            start = pick.choice(((8, 0), (8, 30), (9, 0), (10, 0), (13, 0), (13, 30), (14, 0), (15, 0)))
+            roll = pick.random()
+            status = CANCELLED if roll < .1 else "booked"
+            visit = book(name, plate, [service], -back, start, source=pick.choice(("online", "online", "phone",
+                                                                                     "walk_in")), status=status)
+            if visit is None or (to_local(visit.starts_at, shop.timezone).date() - today).days != -back:
+                continue  # that time or day wasn't free: skip it, the day is busy enough
+            visit.created_at = visit.updated_at = visit.starts_at - timedelta(days=pick.randint(1, 6))
+            if status == CANCELLED:
+                visit.cancel_reason, visit.cancelled_at = pick.choice(reasons), visit.created_at + timedelta(hours=5)
+            elif roll < .18:
+                s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == visit.id,
+                                                   BookedSlot.slot_start > visit.starts_at))
+                visit.status, visit.no_show_at = NO_SHOW, visit.starts_at + timedelta(minutes=20)
+            else:
+                arrived(visit, 20000 + pick.randint(0, 40000))
+                live[f"past-{visit.id}"] = visit
+    s.flush()
 
 
 def add_jobs(s, shop, people, live, moment):

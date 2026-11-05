@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Insights - {{ shop.name }}{% endblock %}
+{# Every chart can also be read as a table (screen readers, print, or exact numbers). #}
+{% macro table_view(title, headers, bars) %}
+  <details class="table-view">
+    <summary>Show as a table</summary>
+    <table class="table compact">
+      <caption class="visually-hidden">{{ title }}</caption>
+      <thead><tr>{% for header in headers %}<th scope="col"{% if not loop.first %} class="num"{% endif %}>{{ header }}</th>{% endfor %}</tr></thead>
+      <tbody>{% for bar in bars %}<tr><td>{{ bar.label }}</td><td class="num">{{ bar.text }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+{% endmacro %}
+{% macro row_chart(title, bars, empty) %}
+  {% if bars and bars|selectattr('value')|list %}
+    <svg class="chart chart-rows" viewBox="-150 -4 530 {{ (bars|length) * 34 + 4 }}" role="img" aria-label="{{ title }}">
+      {% for bar in bars %}
+        <g data-tip="{{ bar.label }}: {{ bar.text }}">
+          <text class="chart-label" x="-8" y="{{ bar.y + 18 }}" text-anchor="end">{{ bar.label|truncate(18, True, '…') }}</text>
+          <rect class="chart-track" x="0" y="{{ bar.y }}" width="300" height="{{ bar.height }}" rx="4"></rect>
+          {% if bar.path %}<path class="chart-bar" d="{{ bar.path }}"></path>{% endif %}
+          <text class="chart-value" x="{{ bar.width + 8 }}" y="{{ bar.y + 18 }}">{{ bar.text }}</text>
+          <rect class="chart-hit" x="-150" y="{{ bar.y - 2 }}" width="530" height="{{ bar.height + 4 }}"></rect>
+        </g>
+      {% endfor %}
+    </svg>
+  {% else %}
+    <p class="muted">{{ empty }}</p>
+  {% endif %}
+{% endmacro %}
+{% block content %}
+  <div class="page-head">
+    <h1>Insights</h1>
+    <div class="segmented" role="group" aria-label="Period">
+      {% for n in periods %}<a href="{{ url_for('desk.insights', days=n) }}"{% if n == data.days %} aria-current="true"{% endif %}>{{ n }} days</a>{% endfor %}
+    </div>
+    <p class="page-sub">{{ data.first|day }} {{ data.first.year }} to {{ data.last|day }} {{ data.last.year }}. Money is expected: the booked services' starting prices plus the extra work customers approved.</p>
+  </div>
+
+  <div class="stat-row stat-row-6">
+    <div class="stat card"><p class="stat-label">Bookings</p><p class="stat-value">{{ data.tiles.bookings }}</p><p class="muted small">not cancelled</p></div>
+    <div class="stat card"><p class="stat-label">Expected Money</p><p class="stat-value">{{ data.tiles.money }}</p><p class="muted small">from visits that came</p></div>
+    <div class="stat card"><p class="stat-label">Work Done</p><p class="stat-value">{{ data.tiles.work }}</p><p class="muted small">booked working time</p></div>
+    <div class="stat card"><p class="stat-label">Bay Use</p><p class="stat-value">{{ data.tiles.bay_use }}</p><p class="muted small">of open hours, on average</p></div>
+    <div class="stat card"><p class="stat-label">No-shows</p><p class="stat-value">{{ data.tiles.no_show_rate }}</p><p class="muted small">{{ data.counts.no_shows }} of {{ data.counts.happened }} visits that were due</p></div>
+    <div class="stat card"><p class="stat-label">Cancelled</p><p class="stat-value">{{ data.tiles.cancel_rate }}</p><p class="muted small">{{ data.counts.cancelled }} of {{ data.counts.all }} bookings</p></div>
+  </div>
+
+  <section class="card">
+    <h2>Bookings per Day</h2>
+    <svg class="chart chart-columns" viewBox="-34 -14 690 222" role="img" aria-label="Bookings per day, {{ data.first|day }} to {{ data.last|day }}">
+      {% for y, label in data.day_ticks %}
+        <line class="chart-grid" x1="0" x2="640" y1="{{ y }}" y2="{{ y }}"></line>
+        <text class="chart-tick" x="-8" y="{{ y + 4 }}" text-anchor="end">{{ label }}</text>
+      {% endfor %}
+      {% for bar in data.day_bars %}
+        <g data-tip="{{ bar.label }}: {{ bar.text }} booking{{ 's' if bar.text != '1' }}">
+          {% if bar.path %}<path class="chart-bar" d="{{ bar.path }}"></path>{% endif %}
+          {% if bar.labelled %}<text class="chart-value" x="{{ bar.x + bar.width / 2 }}" y="{{ bar.y - 5 }}" text-anchor="middle">{{ bar.text }}</text>{% endif %}
+          {% if loop.index0 % data.day_every == 0 %}<text class="chart-tick" x="{{ bar.x + bar.width / 2 }}" y="198" text-anchor="middle">{{ bar.label }}</text>{% endif %}
+          <rect class="chart-hit" x="{{ bar.x - 1 }}" y="0" width="{{ bar.width + 2 }}" height="180"></rect>
+        </g>
+      {% endfor %}
+    </svg>
+    {{ table_view('Bookings per day', ['Day', 'Bookings'], data.day_bars) }}
+  </section>
+
+  <section class="card" id="busiest">
+    <h2>Busiest Hours</h2>
+    <p class="muted small">Bookings by the hour they start. A stronger colour means busier{% if data.peak %} (the busiest hour had {{ data.peak }}){% endif %}.</p>
+    {% if data.peak %}
+      <div class="table-scroll">
+        <table class="heatmap">
+          <thead><tr><th scope="col"><span class="visually-hidden">Day</span></th>{% for hour in data.heat_hours %}<th scope="col">{{ hour % 12 or 12 }}{{ 'a' if hour < 12 else 'p' }}</th>{% endfor %}</tr></thead>
+          <tbody>
+            {% for day_name, cells in data.heat_rows %}
+              <tr><th scope="row">{{ day_name }}</th>
+                {% for hour, count, shade in cells %}<td class="heat-{{ shade }}" data-tip="{{ day_name }} {{ hour % 12 or 12 }} {{ 'AM' if hour < 12 else 'PM' }}: {{ count }} booking{{ 's' if count != 1 }}">{{ count or '' }}</td>{% endfor %}
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">No bookings in this period yet.</p>
+    {% endif %}
+  </section>
+
+  <div class="grid-2">
+    <section class="card">
+      <h2>Bay Use</h2>
+      <p class="muted small">Booked time as a share of the open hours (breaks and closed days left out).</p>
+      {{ row_chart('Bay use', data.bay_bars, 'No bays yet.') }}
+      {{ table_view('Bay use', ['Bay', 'Booked'], data.bay_bars) }}
+    </section>
+    <section class="card">
+      <h2>Money by Service</h2>
+      <p class="muted small">From visits that came in.</p>
+      {{ row_chart('Money by service', data.service_bars, 'No visits came in during this period.') }}
+      {{ table_view('Money by service', ['Service', 'Expected'], data.service_bars) }}
+    </section>
+    <section class="card">
+      <h2>Money by Mechanic</h2>
+      {{ row_chart('Money by mechanic', data.mechanic_bars, 'No visits came in during this period.') }}
+      {{ table_view('Money by mechanic', ['Mechanic', 'Expected'], data.mechanic_bars) }}
+    </section>
+    <section class="card">
+      <h2>How People Booked</h2>
+      <table class="table compact">
+        <tbody>
+          {% for key, label in SOURCE_LABELS.items() %}<tr><th scope="row">{{ label }}</th><td class="num">{{ data.sources[key] }}</td></tr>{% endfor %}
+        </tbody>
+      </table>
+      <h3 class="subhead">Why Bookings Were Cancelled</h3>
+      {% if data.reasons %}
+        <ul class="plain-list small">{% for reason, n in data.reasons %}<li>{{ reason }} <span class="muted">· {{ n }}</span></li>{% endfor %}</ul>
+      {% else %}
+        <p class="muted small">No cancellations in this period.</p>
+      {% endif %}
+    </section>
+  </div>
+  <div class="chart-tip" data-chart-tip hidden role="status"></div>
+{% endblock %}

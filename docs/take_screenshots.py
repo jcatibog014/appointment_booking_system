@@ -40,6 +40,8 @@ PAGES = [
     ("calendar-week.png", "/desk/calendar?view=week", "light", DESKTOP, None),
     ("calendar-dark.png", "/desk/calendar?by=mechanic", "dark", DESKTOP, None),
     ("bookings.png", "/desk/bookings", "light", DESKTOP, "Mika Reyes"),
+    ("insights.png", "/desk/insights?days=30", "light", DESKTOP, None),
+    ("insights-dark.png", "/desk/insights?days=30#busiest", "dark", DESKTOP, None),
     ("jobs.png", "/desk/jobs", "light", DESKTOP, None),
     ("job.png", "job:NAB 4821", "light", DESKTOP, None),
     ("estimate.png", "estimate:Toyota Vios", "light", DESKTOP, "Carlo Mendoza"),
@@ -152,6 +154,8 @@ def main(only=None):
                 page.wait_for_url("**/b/**")
             else:
                 page.goto(BASE + address)
+                if "#" in address:  # a picture of one part of the page
+                    page.locator("#" + address.split("#")[1]).scroll_into_view_if_needed()
             save(page, name)
             page.close()
         browser.close()

@@ -46,6 +46,12 @@
   --radius-small: 6px;
   --ui: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
   --headline: "Barlow Condensed", "Arial Narrow", "Segoe UI", sans-serif;
+  /* Charts (Insights): checked with the dataviz validator against each mode's card surface.
+     The heatmap is one hue, lighter to darker; text on each step has its own ink. */
+  --chart: #7c3aed;
+  --chart-track: #f1eef8;
+  --heat-1: #e6dcfd; --heat-2: #c4aefa; --heat-3: #a07ef5; --heat-4: #7c3aed; --heat-5: #5b21b6;
+  --heat-ink-1: #1b1a22; --heat-ink-2: #1b1a22; --heat-ink-3: #1b1a22; --heat-ink-4: #ffffff; --heat-ink-5: #ffffff;
   --control-height: 2.6rem;
   color-scheme: light;
 }
@@ -80,6 +86,10 @@
     --side-rule: #24222d;
     --panel: #0d0c11;
     --plate-card: rgb(255 255 255 / .025);
+    --chart: #8b5cf6;
+    --chart-track: #24222d;
+    --heat-1: #3a2d5c; --heat-2: #5b4592; --heat-3: #7f62c9; --heat-4: #a78bfa; --heat-5: #d4c4fd;
+    --heat-ink-1: #ebe9f2; --heat-ink-2: #ebe9f2; --heat-ink-3: #ffffff; --heat-ink-4: #1a1033; --heat-ink-5: #1a1033;
     color-scheme: dark;
   }
 }
@@ -113,6 +123,10 @@
   --side-rule: #24222d;
   --panel: #0d0c11;
   --plate-card: rgb(255 255 255 / .025);
+  --chart: #8b5cf6;
+  --chart-track: #24222d;
+  --heat-1: #3a2d5c; --heat-2: #5b4592; --heat-3: #7f62c9; --heat-4: #a78bfa; --heat-5: #d4c4fd;
+  --heat-ink-1: #ebe9f2; --heat-ink-2: #ebe9f2; --heat-ink-3: #ffffff; --heat-ink-4: #1a1033; --heat-ink-5: #1a1033;
   color-scheme: dark;
 }
 
@@ -716,3 +730,32 @@ tr.is-low td:first-child { box-shadow: inset 3px 0 0 var(--warning-ink); }
 .steps-list { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .25rem; }
 .push-card { border-left: 4px solid var(--accent); }
 details summary { cursor: pointer; }
+
+/* ---------- Insights ---------- */
+
+.stat-row-6 { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+@container main (min-width: 75rem) { .stat-row-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+.chart { display: block; width: 100%; height: auto; overflow: visible; font-family: var(--ui); }
+.chart-columns { max-height: 17rem; }
+.chart-bar { fill: var(--chart); }
+.chart-track { fill: var(--chart-track); }
+.chart-grid { stroke: var(--rule); stroke-width: 1; }
+.chart-tick { fill: var(--ink-soft); font-size: 11px; }
+.chart-label { fill: var(--ink); font-size: 12px; }
+.chart-rows .chart-label, .chart-rows .chart-value { font-size: 15px; }
+.chart-value { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.chart-hit { fill: transparent; }
+g[data-tip]:hover .chart-bar { fill: var(--accent-hover); }
+.heatmap { border-collapse: separate; border-spacing: 2px; font-size: .8rem; }
+.heatmap th { font-weight: 600; color: var(--ink-soft); padding: .2rem .35rem; text-align: center; }
+.heatmap tbody th { text-align: left; }
+.heatmap td { min-width: 2.4rem; height: 2rem; text-align: center; border-radius: 4px; background: var(--surface-soft); font-weight: 600; }
+.heatmap td:hover { outline: 2px solid var(--accent); }
+.heat-1 { background: var(--heat-1) !important; color: var(--heat-ink-1); }
+.heat-2 { background: var(--heat-2) !important; color: var(--heat-ink-2); }
+.heat-3 { background: var(--heat-3) !important; color: var(--heat-ink-3); }
+.heat-4 { background: var(--heat-4) !important; color: var(--heat-ink-4); }
+.heat-5 { background: var(--heat-5) !important; color: var(--heat-ink-5); }
+.table-view { margin-top: .75rem; }
+.table-view summary { font-size: .88rem; color: var(--accent); margin-bottom: .5rem; }
+.chart-tip { position: fixed; z-index: 60; pointer-events: none; padding: .35rem .6rem; border-radius: var(--radius-small); background: var(--side-bg); color: var(--side-ink); font-size: .85rem; box-shadow: 0 .25rem 1rem rgb(0 0 0 / .25); white-space: nowrap; }

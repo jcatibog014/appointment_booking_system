@@ -24,6 +24,7 @@
           {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer', 'jobs.vehicle')) }}
           {{ link('jobs.parts', 'Parts', request.endpoint in ('jobs.parts', 'jobs.part')) }}
           {{ link('waiting.desk', 'Waitlist', request.endpoint == 'waiting.desk') }}
+          {% if g.user.role == 'owner' %}{{ link('desk.insights', 'Insights', request.endpoint == 'desk.insights') }}{% endif %}
         {% endif %}
         {{ link('public.home', 'Shop Website', section == 'public') }}
       </ul>
