@@ -17,7 +17,9 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - Every test gets a fresh SQLite file and **never goes online**: an autouse fixture makes any network connection fail.
   - Set `TEST_DATABASE_URL` to an **empty** Neon branch to run the same tests on PostgreSQL. Each test drops and remakes the tables.
   - SQLAlchemy warnings fail the tests (`pytest.ini`).
-- Other commands: `set-password <email>`, `purge-demos`.
+- Other commands: `set-password <email>`, `purge-demos`, `tick` (the timer once), `make-vapid-keys`.
+- Deploy: `render.yaml` (service `shiromoto-garage`, `upgrade-db` before gunicorn). `tests/test_deploy.py` checks that every `os.environ.get` setting in `create_app` is listed there and that secrets use `sync: false`. Icons: `docs/make_icons.py`.
+- The full test run takes ~2.5 min on SQLite (each demo builds four weeks of history); far longer on Neon.
 - Screenshots: `docs/take_screenshots.py` (Playwright + Edge, from Try Demo; its top comment has the steps). Playwright isn't in this `.venv`; borrow `expense_tracker`'s.
 
 ## Architecture

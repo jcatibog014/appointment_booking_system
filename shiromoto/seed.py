@@ -183,6 +183,15 @@ BOOKINGS = [
 ]
 
 
+# Each sample vehicle's odometer today; a visit N days ago read 45 km less per day.
+ODOMETER_TODAY = {"NAB 4821": 41900, "123 QWE": 5400, "DAF 9022": 30200, "NCE 1188": 63400, "456 RTY": 9200,
+                  "ZXA 7745": 88400}
+
+
+def km_on(plate, days_back):
+    return ODOMETER_TODAY[plate] - 45 * days_back
+
+
 def add_bookings(s, shop, people, today, moment):
     """Sample bookings from today on, one past visit and one cancelled one, all placed
     with the real slot finder so they never overlap. A day the shop is closed moves
@@ -227,27 +236,27 @@ def add_bookings(s, shop, people, today, moment):
     for name, plate, names, offset, start, source, notes in BOOKINGS:
         placed = book(name, plate, names, offset, start, source, notes)
         if placed is not None and placed.starts_at <= moment:  # today's that have started are here already
-            arrived(placed, 21300 + placed.id * 137)
+            arrived(placed, km_on(plate, 0))
             live[plate] = placed
     # Carlo's car came in on the last open day and is still here, waiting for his
     # approval: the customer's View As shows an estimate to approve.
     waiting = book("Carlo Mendoza", "NAB 4821", ["Brake Service"], -1, (13, 0), source="online",
                    notes="Grinding noise from the front.")
     if waiting is not None:
-        arrived(waiting, 41870)
+        arrived(waiting, km_on("NAB 4821", (today - to_local(waiting.starts_at, shop.timezone).date()).days))
         live["waiting"] = waiting
     # Earlier visits (the customer pages and the Bookings list show history), one no-show,
     # and one Carlo cancelled.
-    for name, plate, names, offset, start, km in (
-            ("Carlo Mendoza", "NAB 4821", ["Car PMS"], -40, (8, 0), 38250),
-            ("Liza Ramos", "DAF 9022", ["Car Oil Change"], -21, (9, 0), 27910),
-            ("Ben Tan", "NCE 1188", ["Tire Mounting and Balancing"], -12, (13, 0), 61200),
-            ("Joy Villanueva", "456 RTY", ["Motorcycle Oil Change"], -9, (10, 0), 8400),
-            ("Carlo Mendoza", "123 QWE", ["Motorcycle Brake Pads"], -5, (14, 0), 5120)):
-        past = book(name, plate, names, offset, start, source="phone" if km % 2 else "online")
+    for n, (name, plate, names, offset, start) in enumerate((
+            ("Carlo Mendoza", "NAB 4821", ["Car PMS"], -40, (8, 0)),
+            ("Liza Ramos", "DAF 9022", ["Car Oil Change"], -21, (9, 0)),
+            ("Ben Tan", "NCE 1188", ["Tire Mounting and Balancing"], -12, (13, 0)),
+            ("Joy Villanueva", "456 RTY", ["Motorcycle Oil Change"], -9, (10, 0)),
+            ("Carlo Mendoza", "123 QWE", ["Motorcycle Brake Pads"], -5, (14, 0)))):
+        past = book(name, plate, names, offset, start, source="phone" if n % 2 else "online")
         if past is not None:
             past.created_at = past.updated_at = past.starts_at - timedelta(days=3)
-            arrived(past, km)
+            arrived(past, km_on(plate, (today - to_local(past.starts_at, shop.timezone).date()).days))
             live[f"past-{past.id}"] = past
     missed = book("Mark Aquino", "ZXA 7745", ["Engine Diagnostics"], -7, (15, 0), source="phone")
     if missed is not None:
@@ -257,7 +266,11 @@ def add_bookings(s, shop, people, today, moment):
     if cancelled is not None:
         cancelled.cancel_reason, cancelled.cancelled_at = "Fixed it myself", moment - timedelta(days=1)
     s.flush()
-    add_history(s, shop, today, moment, book, arrived, live)
+    def book_on(name, plate, names, day, start, source, status):
+        return booking.place(s, shop, [services[n] for n in names], vehicles[plate], customers[name], day,
+                             start[0] * 60 + start[1], moment, source=source, status=status)
+
+    add_history(s, shop, today, book_on, arrived, live)
     add_jobs(s, shop, people, live, moment)
     # Two people on the waitlist: the timer offers them the next free time.
     from .models import WaitlistEntry
@@ -294,7 +307,7 @@ EVERYDAY = [
 HISTORY_DAYS = 28
 
 
-def add_history(s, shop, today, moment, book, arrived, live):
+def add_history(s, shop, today, book_on, arrived, live):
     """Two to four visits on each open day of the last four weeks, at busy morning and
     after-lunch hours, placed by the real slot finder. A fixed random seed makes every
     demo the same. About 1 in 12 is a no-show and 1 in 10 was cancelled."""
@@ -309,10 +322,10 @@ def add_history(s, shop, today, moment, book, arrived, live):
             start = pick.choice(((8, 0), (8, 30), (9, 0), (10, 0), (13, 0), (13, 30), (14, 0), (15, 0)))
             roll = pick.random()
             status = CANCELLED if roll < .1 else "booked"
-            visit = book(name, plate, [service], -back, start, source=pick.choice(("online", "online", "phone",
-                                                                                     "walk_in")), status=status)
-            if visit is None or (to_local(visit.starts_at, shop.timezone).date() - today).days != -back:
-                continue  # that time or day wasn't free: skip it, the day is busy enough
+            visit = book_on(name, plate, [service], today - timedelta(days=back), start,
+                            pick.choice(("online", "online", "phone", "walk_in")), status)
+            if visit is None:
+                continue  # closed, or that time wasn't free: the day is busy enough
             visit.created_at = visit.updated_at = visit.starts_at - timedelta(days=pick.randint(1, 6))
             if status == CANCELLED:
                 visit.cancel_reason, visit.cancelled_at = pick.choice(reasons), visit.created_at + timedelta(hours=5)
@@ -321,7 +334,7 @@ def add_history(s, shop, today, moment, book, arrived, live):
                                                    BookedSlot.slot_start > visit.starts_at))
                 visit.status, visit.no_show_at = NO_SHOW, visit.starts_at + timedelta(minutes=20)
             else:
-                arrived(visit, 20000 + pick.randint(0, 40000))
+                arrived(visit, km_on(plate, back))
                 live[f"past-{visit.id}"] = visit
     s.flush()
 

@@ -1,0 +1,52 @@
+# Render "Blueprint": tells Render how to build and run ShiroMoto Garage.
+# Render reads this file when you choose New -> Blueprint and pick this repo.
+# The service name becomes the web address: shiromoto-garage.onrender.com
+# (Render adds a few letters if that name is already taken).
+# Every merge into main deploys the site again by itself.
+#
+# The data (bookings, customers, jobs, photos) lives in Neon (free PostgreSQL),
+# not on Render: Render's free plan forgets its files every time it restarts.
+services:
+  - type: web
+    name: shiromoto-garage
+    runtime: python  # the version comes from the .python-version file
+    plan: free  # sleeps after 15 quiet minutes; the next visit wakes it up (about 30-50 s)
+    region: singapore  # close to the Philippines, and to Neon's Singapore database
+    branch: main
+    buildCommand: pip install -r requirements.txt
+    # First upgrade-db runs the Alembic migrations (it keeps all data, and does
+    # nothing when the tables are up to date). Then gunicorn calls create_app()
+    # to build the app and serves it on Render's port.
+    startCommand: flask --app shiromoto upgrade-db && gunicorn "shiromoto:create_app()" --bind 0.0.0.0:$PORT --workers 2 --timeout 60
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      # Signs the login cookie and the links in notices. Render makes a long random one.
+      - key: SECRET_KEY
+        generateValue: true
+      # The secret the GitHub timer sends to /tasks/tick. Render makes it; copy it
+      # into the repo's TICK_KEY secret (see the README).
+      - key: TICK_KEY
+        generateValue: true
+      # Neon's connection string (postgresql://...). Render asks for it when you make
+      # the Blueprint; it is never written in this file.
+      - key: DATABASE_URL
+        sync: false
+      # The site's address, like https://shiromoto-garage.onrender.com
+      - key: BASE_URL
+        sync: false
+      # Email (optional): a Gmail address and its 16-letter app password.
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      # Who the emails say they're from, like: ShiroMoto Garage <you@gmail.com>
+      - key: MAIL_FROM
+        sync: false
+      # Push notifications (optional): from flask --app shiromoto make-vapid-keys
+      - key: VAPID_PUBLIC_KEY
+        sync: false
+      - key: VAPID_PRIVATE_KEY
+        sync: false
+      - key: VAPID_SUBJECT
+        value: mailto:hello@shiromoto.example

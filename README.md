@@ -4,9 +4,20 @@
 
 I made this project to practice three skills: **date and time handling** (opening hours, lunch breaks, holidays and leave), **transactions** (a booking is saved all at once, or not at all) and **concurrency** (two people who press "Book" at the same second can't both get the last slot).
 
-It was built in 8 stages: the shop's setup, free times, booking with no double booking, the front desk, jobs, notices and the phone app, insights, and the demo.
+It was built in 8 stages (the plan is in `docs/PLAN.md`). It also installs on a phone like an app.
 
 ![The desk's Today page](docs/screenshots/today.png)
+
+## Who Uses It
+
+**Try it:** press **Try Demo** on the login page. You get a private sample shop with 7 bays, 4 mechanics, 14 services, parts, four weeks of history and a car waiting for its owner's approval. It is yours alone, and it is deleted after 2 hours. **View as** (at the top) lets you see the shop as the service advisor, a mechanic or Carlo, a customer.
+
+| Role | Can do |
+|---|---|
+| Owner | Everything, including the shop's Settings, parts and Insights |
+| Service advisor | The front desk: bookings, walk-ins, check-in, customers, parts, waitlist |
+| Mechanic | Their jobs, the calendar and their own week |
+| Customer | Book (as a guest or with an account), move, cancel, approve estimates, My Garage |
 
 ## The Shop's Pieces
 
@@ -21,67 +32,43 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
 
-## Insights (Stage 7)
+## Setting Up the Shop
 
-For the owner, over the last 7, 30 or 90 days:
-- **Tiles:** bookings, expected money (the booked services' starting prices plus the extra work customers approved), work done, bay use, the no-show rate and the cancel rate.
-- **Bookings per day** (columns), and **busiest hours** (a weekday × hour grid: a stronger colour means busier).
-- **Bay use:** booked time as a share of the open hours, without breaks and closed days, per bay.
-- **Money by service and by mechanic**, how people booked (online, phone, walk-in), and why bookings were cancelled.
-- Every chart has a **Show as a table** view, and a small tip on hover. The colours were checked with a colour validator for both light and dark mode. Dark mode has its own steps: there, a busier hour is lighter.
+**The shop's page** (for everyone)
+- The home page: services and prices for cars and for motorcycles, opening hours, today's status ("Open 8:00 AM to 5:00 PM" or "Closed: Bonifacio Day") and the closures in the next 30 days.
 
-## Notices, the Waitlist and the Phone App (Stage 6)
+**Settings** (for the owner)
+- **Shop details and booking rules:** the earliest and latest booking, the online cancel cut-off, and how long a chosen time is kept.
+- **Opening hours:** each day of the week, with a lunch break. Times use 15-minute steps.
+- **Closures and leave:** shop closures, part-day closures (for example 1:00 to 5:00 PM for training), and a mechanic's leave. **Add PH holidays** adds the Philippine holidays for a year. Holy Week is worked out for each year, because Easter moves.
+- **Bays:** add, rename, or take a bay out of use. Add new kinds of bay.
+- **Services and prices:** time, clean-up, bay, skill and price. Prices are saved as whole centavos, never as decimals.
+- **Staff:** invite a service advisor or mechanic with a one-time link, change roles, set skills and working hours, and switch off a login.
 
-**Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
-- **Email** goes through Gmail with an app password. **Push** goes to phones that turned it on.
-- Every notice goes into an **outbox** first, with a unique key. The same reminder can't be queued twice, even if the timer runs twice at the same moment.
-- Before sending, a notice is **claimed** ("pending" becomes "sending"), so two timers never send the same email twice.
-- A failed email is tried again 3 times.
-- Links in notices are **signed** by the app, so they open the customer's booking without the app keeping their secret link.
+## How Free Times Are Found
 
-**The timer.** Render's free plan has no timer. So a free **GitHub Actions** schedule (`.github/workflows/tick.yml`) calls `/tasks/tick` every 15 minutes with a secret key. Each call clears held times that ran out, makes waitlist offers, queues reminders and sends what is due.
-
-**The waitlist.** On a full day, a customer can **join the waitlist** for a range of days. When a time frees up (a cancellation, a no-show, a moved booking), the first person waiting is offered it:
-- the time is **held for 30 minutes**, so nobody else can take it, and they get a link;
-- if they don't take it, it goes to the next person (up to 3 offers each).
-
-The offer is claimed with a conditional update, so two timers never offer the same person two times.
-
-**The phone app.** The site installs like an app (a PWA):
-- **Install** in Settings on Android, or **Share → Add to Home Screen** on iPhone;
-- its own icon, it opens full screen, and an **offline** page when there's no signal;
-- **push notifications** on the phone.
-
-On iPhone, push works after installing the app (iOS 16.4 or newer).
-
-## Jobs, Estimates and Parts (Stage 5)
-
-Check-in opens a **job**. It moves along one road, and each step is written on a timeline the customer can read:
+A time is free when **a mechanic with every skill** is working for the whole job **and a bay of the right kind** is empty for the whole job.
 
 ```
-Checked in → Inspecting → Waiting for approval → In progress → Ready for pickup → Released
-                                                    ↕
-                                            Waiting for parts
+Shop hours        8:00 ─────────── 12:00   lunch   1:00 ──────────── 5:00
+Jun's hours       8:00 ─────────── 12:00           1:00 ──────────── 5:00
+Car PMS (3 h 15 min with clean-up), starting 10:00:
+                        10:00 ════ 12:00 (pause)   1:00 ═══ 2:15  ready
 ```
 
-- **Check-in checklist:** fuel level, body, glass, lights, tires, warning lights and items left inside, plus **photos**. Every photo is made smaller and saved as WebP, and its hidden camera data (like the GPS position) is removed.
-- **Estimates:** the mechanic adds work or parts with a reason in plain words. The customer **approves or declines each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
-- **Only one decision counts.** A line changes only while it is still "waiting" (`UPDATE ... WHERE status = 'proposed'`). If the customer and the front desk press at the same moment, the second one is told it was already decided.
-- **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list.
-- **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
-- **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
+- Every time is in **minutes since midnight** on the shop's clock (8:30 AM is 510). The finder adds, subtracts and compares plain numbers. Only the final start becomes a real UTC moment.
+- **Work time skips breaks.** A job never starts during lunch, and it must finish before closing on the same day.
+- **Closures:** Sundays, holidays and whole-day closures give no times. A part-day closure (1:00 to 5:00 PM) cuts the afternoon.
+- **People:** a mechanic's own hours, days off and leave (a whole day, or only part of it) count too. Ana is off on Mondays, so on Mondays there are no Aircon times.
+- **Booking rules:** the minimum notice (2 hours: at 9:10 AM the first time is 11:15 AM), the furthest day (30 days ahead), and "today" means **Manila's** today. At 11:30 PM in UTC, Manila is already the next morning.
+- **Several services in one visit** add up their work time. The clean-up happens once, at the end. They must use the same kind of bay: a car is not moved from the lift to the alignment bay halfway through.
+- When a day has no times, the page says why: "Closed: Bonifacio Day", "No mechanic who does this works on this day", "The times left on this day are too soon to book"...
 
-## The Front Desk (Stage 4)
+**The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
 
-- **Today** shows **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes. You can see the bookings, the times someone is booking right now, lunch, and a red line for "now". Under it is **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
-- **No-show:** after 15 minutes the front desk can mark a no-show. The rest of that booking's time is freed at once, so a walk-in can have the bay. If the customer comes after all, **They came** takes the time back. But if a walk-in was already booked into it, the database refuses and nothing changes.
-- **Walk-ins and callers:** staff book from **right now**. The customers' 2-hour notice is only for online bookings.
-- **Calendar:** any day as the timeline (by bay or by mechanic), or a whole week.
-- **Bookings:** every booking. Search by booking number, name, phone (written any way) or plate, and filter by status, who booked and dates.
-- **Customers:** everyone who booked, with their vehicles, visits, no-shows and the shop's private notes.
-- Mechanics see Today (their own jobs) and the Calendar. The owner and service advisors see everything.
+**Free Times** (staff, in the menu): the same page, plus which mechanics and which bays are free at each time.
 
-## How Double Booking Is Stopped (Stage 3)
+## How Double Booking Is Stopped
 
 A booking takes **cells**: one row for each 15 minutes, for its bay **and** for its mechanic. The database has one rule on those rows: the same bay (or mechanic) and the same 15 minutes may appear only once.
 
@@ -117,94 +104,115 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 - **An account (My Garage)** keeps your vehicles and bookings together and fills in the form for you. Open a guest booking's link while logged in, then press **Save to My Garage**.
 
 **For staff:**
-- **Free Times** now books for a caller or a walk-in.
+- **Free Times** books for a caller or a walk-in.
 - **Today** lists the day's bookings. A mechanic sees their own jobs.
 - Staff can open any booking, and can move or cancel it at any time.
 
-## How Free Times Are Found (Stage 2)
+## The Front Desk
 
-A time is free when **a mechanic with every skill** is working for the whole job **and a bay of the right kind** is empty for the whole job.
+- **Today** shows **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes. You can see the bookings, the times someone is booking right now, lunch, and a red line for "now". Under it is **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
+- **No-show:** after 15 minutes the front desk can mark a no-show. The rest of that booking's time is freed at once, so a walk-in can have the bay. If the customer comes after all, **They came** takes the time back. But if a walk-in was already booked into it, the database refuses and nothing changes.
+- **Walk-ins and callers:** staff book from **right now**. The customers' 2-hour notice is only for online bookings.
+- **Calendar:** any day as the timeline (by bay or by mechanic), or a whole week.
+- **Bookings:** every booking. Search by booking number, name, phone (written any way) or plate, and filter by status, who booked and dates.
+- **Customers:** everyone who booked, with their vehicles, visits, no-shows and the shop's private notes.
+- Mechanics see Today (their own jobs) and the Calendar. The owner and service advisors see everything.
+
+## Jobs, Estimates and Parts
+
+Check-in opens a **job**. It moves along one road, and each step is written on a timeline the customer can read:
 
 ```
-Shop hours        8:00 ─────────── 12:00   lunch   1:00 ──────────── 5:00
-Jun's hours       8:00 ─────────── 12:00           1:00 ──────────── 5:00
-Car PMS (3 h 15 min with clean-up), starting 10:00:
-                        10:00 ════ 12:00 (pause)   1:00 ═══ 2:15  ready
+Checked in → Inspecting → Waiting for approval → In progress → Ready for pickup → Released
+                                                    ↕
+                                            Waiting for parts
 ```
 
-- Every time is in **minutes since midnight** on the shop's clock (8:30 AM is 510). The finder adds, subtracts and compares plain numbers. Only the final start becomes a real UTC moment.
-- **Work time skips breaks.** A job never starts during lunch, and it must finish before closing on the same day.
-- **Closures:** Sundays, holidays and whole-day closures give no times. A part-day closure (1:00 to 5:00 PM) cuts the afternoon.
-- **People:** a mechanic's own hours, days off and leave (a whole day, or only part of it) count too. Ana is off on Mondays, so on Mondays there are no Aircon times.
-- **Booking rules:** the minimum notice (2 hours: at 9:10 AM the first time is 11:15 AM), the furthest day (30 days ahead), and "today" means **Manila's** today. At 11:30 PM in UTC, Manila is already the next morning.
-- **Several services in one visit** add up their work time. The clean-up happens once, at the end. They must use the same kind of bay: a car is not moved from the lift to the alignment bay halfway through.
-- When a day has no times, the page says why: "Closed: Bonifacio Day", "No mechanic who does this works on this day", "The times left on this day are too soon to book"...
+- **Check-in checklist:** fuel level, body, glass, lights, tires, warning lights and items left inside, plus **photos**. Every photo is made smaller and saved as WebP, and its hidden camera data (like the GPS position) is removed.
+- **Estimates:** the mechanic adds work or parts with a reason in plain words. The customer **approves or declines each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
+- **Only one decision counts.** A line changes only while it is still "waiting" (`UPDATE ... WHERE status = 'proposed'`). If the customer and the front desk press at the same moment, the second one is told it was already decided.
+- **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list.
+- **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
+- **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
 
-**The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
+## Notices, the Waitlist and the Phone App
 
-**Free Times** (staff, in the menu): the same page, plus which mechanics and which bays are free at each time.
+**Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
+- **Email** goes through Gmail with an app password. **Push** goes to phones that turned it on.
+- Every notice goes into an **outbox** first, with a unique key. The same reminder can't be queued twice, even if the timer runs twice at the same moment.
+- Before sending, a notice is **claimed** ("pending" becomes "sending"), so two timers never send the same email twice.
+- A failed email is tried again 3 times.
+- Links in notices are **signed** by the app, so they open the customer's booking without the app keeping their secret link.
 
-## What It Could Already Do (Stage 1)
+**The timer.** Render's free plan has no timer. So a free **GitHub Actions** schedule (`.github/workflows/tick.yml`) calls `/tasks/tick` every 15 minutes with a secret key. Each call clears held times that ran out, makes waitlist offers, queues reminders and sends what is due.
 
-**For customers**
-- The shop's page: services and prices for cars and for motorcycles, opening hours, today's status ("Open 8:00 AM to 5:00 PM" or "Closed: Bonifacio Day") and the closures in the next 30 days.
+**The waitlist.** On a full day, a customer can **join the waitlist** for a range of days. When a time frees up (a cancellation, a no-show, a moved booking), the first person waiting is offered it:
+- the time is **held for 30 minutes**, so nobody else can take it, and they get a link;
+- if they don't take it, it goes to the next person (up to 3 offers each).
 
-**For the owner (Settings)**
-- **Shop details and booking rules:** the earliest and latest booking, the online cancel cut-off, and how long a chosen time is kept.
-- **Opening hours:** each day of the week, with a lunch break. Times use 15-minute steps.
-- **Closures and leave:** shop closures, part-day closures (for example 1:00 to 5:00 PM for training), and a mechanic's leave. **Add PH holidays** adds the Philippine holidays for a year. Holy Week is worked out for each year, because Easter moves.
-- **Bays:** add, rename, or take a bay out of use. Add new kinds of bay.
-- **Services and prices:** time, clean-up, bay, skill and price. Prices are saved as whole centavos, never as decimals.
-- **Staff:** invite a service advisor or mechanic with a one-time link, change roles, set skills and working hours, and switch off a login.
+The offer is claimed with a conditional update, so two timers never offer the same person two times.
 
-**For staff**
-- **Today:** the shop's hours, who is working (or on leave), the bays, and the closures in the next 14 days. The owner also sees a setup checklist.
+**The phone app.** The site installs like an app (a PWA):
+- **Install** in Settings on Android, or **Share → Add to Home Screen** on iPhone;
+- its own icon, it opens full screen, and an **offline** page when there's no signal;
+- **push notifications** on the phone.
 
-**Roles**
+On iPhone, push works after installing the app (iOS 16.4 or newer).
 
-| Role | Can do |
-|---|---|
-| Owner | Everything, including Settings for the shop |
-| Service advisor | The front desk: bookings for callers and walk-ins |
-| Mechanic | Their jobs (stage 5) and their own week |
-| Customer | Book, move and cancel; My Garage |
+## Insights
 
-**Safety**
+For the owner, over the last 7, 30 or 90 days:
+- **Tiles:** bookings, expected money (the booked services' starting prices plus the extra work customers approved), work done, bay use, the no-show rate and the cancel rate.
+- **Bookings per day** (columns), and **busiest hours** (a weekday × hour grid: a stronger colour means busier).
+- **Bay use:** booked time as a share of the open hours, without breaks and closed days, per bay.
+- **Money by service and by mechanic**, how people booked (online, phone, walk-in), and why bookings were cancelled.
+- Every chart has a **Show as a table** view, and a small tip on hover. The colours were checked with a colour validator for both light and dark mode. Dark mode has its own steps: there, a busier hour is lighter.
+
+## Safety
+
 - Passwords are saved only as hashes. After 5 wrong tries, the account waits 15 minutes.
 - An invite link works once, for 7 days. Only a hash of it is saved.
-- **Try Demo** makes a private sample shop with 7 bays, 4 mechanics and 14 services. It is yours alone, and it is deleted after 2 hours. **View as** lets you see the shop as the service advisor, a mechanic or a customer.
-
-## Coming Next
-
-| Stage | What it adds |
-|---|---|
-| 8 | Demo, pictures and going online |
+- A booking opens only with its private link, for its customer, or for staff. Everyone else gets "not found".
+- Every page is protected against forms sent from other sites (CSRF), and the browser may only run the site's own scripts (a Content Security Policy).
+- Check-in photos lose their hidden GPS data, and only staff and the booking's customer can see them.
 
 ## Pictures
 
+**Booking (customers)**
+
 | | |
 |---|---|
-| ![The shop's page](docs/screenshots/home.png) The shop's page | ![The login page](docs/screenshots/login.png) Log in |
-| ![Today, as a mechanic](docs/screenshots/today-mechanic.png) Today, as a mechanic | ![Today in dark mode](docs/screenshots/today-dark.png) Dark mode |
+| ![The shop's page](docs/screenshots/home.png) The shop's page | ![Book: choose services](docs/screenshots/book-services.png) Book: choose services |
+| ![Book: free times](docs/screenshots/book-times.png) Book: free times | ![Your details, with the time kept for you](docs/screenshots/book-details.png) Your details (the time is kept) |
+| ![A booking's page](docs/screenshots/booking.png) A booking's page | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves an estimate |
+| ![My Garage](docs/screenshots/garage.png) My Garage | ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist |
+| ![The shop's page on a phone](docs/screenshots/phone.png) On a phone | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone |
+| ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Make an account](docs/screenshots/signup.png) Make an account |
+
+**The front desk and the workshop**
+
+| | |
+|---|---|
+| ![Today in dark mode](docs/screenshots/today-dark.png) Today, dark mode | ![Today, as a mechanic](docs/screenshots/today-mechanic.png) Today, as a mechanic |
+| ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
+| ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff |
+| ![Free Times in dark mode](docs/screenshots/free-times-dark.png) Free Times, dark mode | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
+| ![Every booking, with search](docs/screenshots/bookings.png) Bookings | ![A customer's page](docs/screenshots/customer.png) A customer |
+| ![The Jobs board](docs/screenshots/jobs.png) Jobs board | ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate |
+| ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |
+| ![The waitlist at the desk](docs/screenshots/waitlist.png) The waitlist, for staff | ![Insights](docs/screenshots/insights.png) Insights |
+| ![Busiest hours and bay use, in dark mode](docs/screenshots/insights-dark.png) Busiest hours, bay use and money | |
+
+**Setting up the shop**
+
+| | |
+|---|---|
 | ![Settings](docs/screenshots/settings.png) Settings | ![Opening hours](docs/screenshots/hours.png) Opening hours |
 | ![Closures and leave](docs/screenshots/closures.png) Closures and leave | ![Bays](docs/screenshots/bays.png) Bays |
 | ![Services and prices](docs/screenshots/services.png) Services and prices | ![Staff](docs/screenshots/staff.png) Staff |
-| ![A mechanic's skills and hours](docs/screenshots/mechanic.png) A mechanic's skills and hours | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone |
-| ![Book: choose services](docs/screenshots/book-services.png) Book: choose services | ![Book: free times](docs/screenshots/book-times.png) Book: free times |
-| ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff | ![Free Times in dark mode](docs/screenshots/free-times-dark.png) Free Times, dark mode |
-| ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone | ![Your details, with the time kept for you](docs/screenshots/book-details.png) Your details (the time is kept) |
-| ![A booking's page](docs/screenshots/booking.png) A booking's page | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
-| ![My Garage](docs/screenshots/garage.png) My Garage | ![Make an account](docs/screenshots/signup.png) Make an account |
-| ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
-| ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Every booking, with search](docs/screenshots/bookings.png) Bookings |
-| ![A customer's page](docs/screenshots/customer.png) A customer | ![The Jobs board](docs/screenshots/jobs.png) Jobs board |
-| ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves |
-| ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |
-| ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist | ![The waitlist at the desk](docs/screenshots/waitlist.png) The waitlist, for staff |
-| ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Insights](docs/screenshots/insights.png) Insights |
-| ![Busiest hours and bay use, in dark mode](docs/screenshots/insights-dark.png) Busiest hours and bay use, dark mode | |
+| ![A mechanic's skills and hours](docs/screenshots/mechanic.png) A mechanic's skills and hours | ![The login page](docs/screenshots/login.png) Log in |
 
-All people in these pictures are made up. They come from Try Demo.
+All people and vehicles in these pictures are made up. They come from Try Demo.
 
 ## Tools
 
@@ -217,10 +225,17 @@ All people in these pictures are made up. They come from Try Demo.
 | SQLite | Database | Saves data on my computer and in tests |
 | PostgreSQL (Neon) | Database | Saves data on the live site |
 | zoneinfo, tzdata | Python's time zone tools | Manila time for every booking |
-| pytest | Test tool | Checks that everything works, without going online |
+| Pillow | Image library | Makes check-in photos smaller, removes their GPS data, and draws the app's icons |
+| pywebpush | Library | Sends push notifications to phones |
+| itsdangerous | Library (comes with Flask) | Signs the links in notices |
+| smtplib | Python's own library | Sends email through Gmail |
+| pytest | Test tool | Checks that everything works, with real threads for the races, and without going online |
 | Playwright | Browser tool | Takes the pictures for this page |
 | Barlow Condensed | Font | Headings and the name. The two small files are inside the app. |
-| HTML, CSS, JavaScript | Languages | The pages. They also work without JavaScript. |
+| HTML, CSS, JavaScript, SVG | Languages | The pages and the charts. They also work without JavaScript. |
+| Service worker, Web Push | Browser features | The phone app: install, offline page, notifications |
+| Render | Hosting platform | Runs the live site |
+| GitHub Actions | Automation | The 15-minute timer for reminders and the waitlist |
 
 ## Run It on Your Computer
 
@@ -256,6 +271,34 @@ Run the tests with:
 ```
 .venv\Scripts\python -m pytest
 ```
+
+## Put It Online
+
+The site uses Render (it runs the program), Neon (it keeps the data) and GitHub (its timer). All three have a free plan.
+
+1. **Neon:** make a project in the Singapore region. Copy the connection string. It starts with `postgresql://`.
+2. **Render:** choose **New**, then **Blueprint**, then pick this repository. Render reads `render.yaml`. It makes `SECRET_KEY` and `TICK_KEY` by itself, and asks for the rest:
+   - `DATABASE_URL`: the Neon string;
+   - `BASE_URL`: the site's address, like `https://shiromoto-garage.onrender.com` (you can fill it in after the first deploy);
+   - leave the email and push settings empty for now. The site works without them, and notices are shown in the app.
+3. **Make the shop and your owner login.** Render's free plan has no Shell, so run it from your computer against Neon. Keep the string secret:
+
+   ```
+   $env:DATABASE_URL = "postgresql://..."
+   .venv\Scripts\flask --app shiromoto create-owner you@example.com
+   Remove-Item Env:DATABASE_URL
+   ```
+
+4. Open the site, log in, and finish the setup in **Settings**: phone and address, hours, bays, services, and invite your staff.
+5. **The timer** (reminders and the waitlist): on GitHub, open the repository's **Settings → Secrets and variables → Actions** and add two secrets:
+   - `TICK_URL`: `https://<your-site>.onrender.com/tasks/tick`;
+   - `TICK_KEY`: copy it from Render (the service's **Environment** page).
+
+   From then on, GitHub calls the site every 15 minutes.
+6. **Email** (optional): turn on 2-Step Verification for the shop's Gmail, then make an **app password** (Google Account → Security → App passwords). On Render, set `MAIL_USERNAME` (the Gmail address), `MAIL_PASSWORD` (the 16 letters) and `MAIL_FROM` (like `ShiroMoto Garage <shop@gmail.com>`).
+7. **Push notifications** (optional): run `.venv\Scripts\flask --app shiromoto make-vapid-keys` on your computer, and copy the two lines into Render as `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY`.
+
+Settings → **Email and Push** shows which of these are on. On the free plan, the site sleeps after 15 quiet minutes. The next visit (or the timer) wakes it up, and this takes about 30 to 50 seconds.
 
 ## Forgot Your Password?
 
