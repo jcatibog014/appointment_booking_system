@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import back, csrf, field %}
+{% from "_macros.html" import back, csrf, field, quote_pill, visit_price %}
 {% from "_desk.html" import actions with context %}
 {% from "_job.html" import checklist_view, estimate, events, job_pill, photo_grid, progress with context %}
 {% block title %}Booking {{ appointment.ref }} - {{ shop.name }}{% endblock %}
@@ -29,7 +29,7 @@
       </div>
       <dl class="detail-list">
         <div><dt>Services</dt><dd>{{ appointment.lines|map(attribute='name')|join(' + ') }}</dd></div>
-        <div><dt>Estimated price</dt><dd>from {{ appointment.price_from|peso }} <span class="muted small">(the final price depends on what we find, and we ask you before any extra work)</span></dd></div>
+        <div><dt>Estimated price</dt><dd>{{ visit_price(appointment.price_from, appointment.price_open) }} <span class="muted small">(the final price depends on what we find, and we ask you before any extra work)</span></dd></div>
         <div><dt>Vehicle</dt><dd>{{ VEHICLE_LABELS[appointment.vehicle.kind] }} · {{ appointment.vehicle.label }}</dd></div>
         {% if staff_view %}
           <div><dt>Mechanic and bay</dt><dd>{{ appointment.mechanic.name }} · {{ appointment.bay.name }}</dd></div>
@@ -55,6 +55,71 @@
         </p>
       {% endif %}
     </section>
+
+    {% if appointment.quote_status %}
+      {% set quote = appointment.quote_status %}
+      {% set alone = appointment.lines|rejectattr('is_other')|list|length == 0 %}
+      <section class="card other-card" id="other-service">
+        <div class="card-head">
+          <h2>{{ 'The Other Service' if staff_view else 'Your Other Service' }}</h2>
+          {{ quote_pill(quote, for_customer=not staff_view) }}
+        </div>
+        <p class="request-text">“{{ appointment.request_text }}”</p>
+
+        {% if quote in ('priced', 'accepted', 'declined') %}
+          <div class="quote-figure">
+            <p class="quote-price">{{ appointment.quote_price|peso }}</p>
+            {% if appointment.quote_note %}<p>{{ appointment.quote_note }}</p>{% endif %}
+            <p class="muted small">Sent by {{ appointment.quoted_by or 'the shop' }}, {{ appointment.quoted_at|local_moment(shop.timezone) }}{% if appointment.quote_decided_at %} · {{ 'Accepted' if quote == 'accepted' else 'Declined' }} {{ appointment.quote_decided_at|local_moment(shop.timezone) }}{% endif %}</p>
+          </div>
+        {% endif %}
+
+        {% if quote == 'to_price' %}
+          {% if staff_view %}
+            <p class="call-note">The customer is waiting for a price. Check what they asked for, then send it. They confirm it or decline it from their link.</p>
+          {% else %}
+            <p class="call-note">We're checking what you asked for. We'll send you the price here{% if appointment.customer.email %} and by email{% endif %}, and you confirm it or decline it before we do the work.</p>
+          {% endif %}
+        {% elif quote == 'priced' and appointment.status not in ('booked', 'checked_in') %}
+          <p class="small">The booking was {{ STATUS_LABELS[appointment.status]|lower }} before this price was answered.</p>
+        {% elif quote == 'priced' %}
+          {% if staff_view %}
+            <p class="call-note">Waiting for {{ appointment.customer.name.split()[0] }} to confirm or decline. If they answer by phone, record it here.</p>
+          {% else %}
+            <p class="call-note">Please confirm this price or decline it. {{ 'Declining cancels this booking, because it is the only service on it.' if alone else 'Declining takes the other service off your booking. The rest stays as it is.' }}</p>
+          {% endif %}
+          <div class="actions">
+            <form method="post" action="{{ url_for('bookings.answer_price', ref=appointment.ref) }}">
+              {{ csrf() }}
+              <input type="hidden" name="price" value="{{ appointment.quote_price }}">
+              <button class="button" type="submit" name="answer" value="accept">{{ 'They said yes' if staff_view else 'Confirm ' ~ (appointment.quote_price|peso) }}</button>
+            </form>
+            <form method="post" action="{{ url_for('bookings.answer_price', ref=appointment.ref) }}" data-confirm="{{ 'Decline the price? This cancels the booking.' if alone else 'Decline the price? The other service comes off the booking.' }}">
+              {{ csrf() }}
+              <input type="hidden" name="price" value="{{ appointment.quote_price }}">
+              <button class="button button-quiet" type="submit" name="answer" value="decline">{{ 'They said no' if staff_view else 'Decline' }}</button>
+            </form>
+          </div>
+        {% elif quote == 'accepted' %}
+          <p class="small">{{ 'The customer accepted this price.' if staff_view else "You confirmed this price. It's part of your booking now." }}</p>
+        {% elif quote == 'declined' %}
+          <p class="small">{{ 'The customer declined this price.' if staff_view else 'You declined this price.' }}{% if appointment.status == 'cancelled' %} The booking is cancelled.{% else %} The other service is off the booking.{% endif %}</p>
+        {% endif %}
+
+        {% if staff_view and quote in ('to_price', 'priced') %}
+          <form method="post" action="{{ url_for('bookings.send_price', ref=appointment.ref) }}" class="stack quote-form">
+            {{ csrf() }}
+            <input type="hidden" name="version" value="{{ appointment.version }}">
+            {% if quote == 'priced' %}<h3 class="subhead">Change the Price</h3>{% endif %}
+            <div class="form-grid">
+              {{ field('price', 'Price (₱)', (appointment.quote_price|pesos_input) if appointment.quote_price else '', hint='Like 850 or 1,250.50', attrs='inputmode="decimal" required') }}
+              {{ field('note', 'Note for the customer', appointment.quote_note, hint="Optional: what's included, or extra time it needs", attrs='maxlength="300"') }}
+            </div>
+            <div class="form-actions"><button class="button{{ ' button-quiet' if quote == 'priced' }}" type="submit">{{ 'Send the new price' if quote == 'priced' else 'Send the price' }}</button></div>
+          </form>
+        {% endif %}
+      </section>
+    {% endif %}
 
     {% set job = appointment.job %}
     {% if job %}

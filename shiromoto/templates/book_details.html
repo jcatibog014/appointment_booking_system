@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import csrf, field, select, textarea %}
+{% from "_macros.html" import csrf, field, select, textarea, visit_price %}
 {% block title %}Your Details - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="narrow">
@@ -12,7 +12,7 @@
       <div>
         <p class="kicker">Your time</p>
         <p class="held-when">{{ day|long_day }}, {{ start|clock }}</p>
-        <p class="muted small">{{ held.services|map(attribute='name')|join(' + ') }} · ready around {{ ready|clock }} · estimate from {{ held.services|sum(attribute='price_from')|peso }}{% if staff_view %} · {{ held.mechanic.name }} · {{ held.bay.name }}{% endif %}</p>
+        <p class="muted small">{{ held.services|map(attribute='name')|join(' + ') }} · ready around {{ ready|clock }} · {% if wants_other and not price_from %}price after we check{% else %}estimate {{ visit_price(price_from, wants_other) }}{% endif %}{% if staff_view %} · {{ held.mechanic.name }} · {{ held.bay.name }}{% endif %}</p>
       </div>
       <p class="hold-timer" data-countdown="{{ expires_in }}" role="timer" aria-live="off">
         Kept for you for <strong data-countdown-text>{{ (expires_in // 60) }}:{{ '%02d' % (expires_in % 60) }}</strong>
@@ -48,6 +48,9 @@
         {{ field('model', 'Model', values.model if not my_vehicles else request.form.model, errors.model, hint='Like Vios or Click 125', attrs='maxlength="40"') }}
         {{ field('year', 'Year', values.year if not my_vehicles else request.form.year, errors.year, attrs='inputmode="numeric" maxlength="4"') }}
       </div>
+      {% if wants_other %}
+        {{ textarea('request', 'What do you need?', values.request, errors.request, hint='For the other service: we check it, then send you the price', rows=2, attrs='required maxlength="400"') }}
+      {% endif %}
       {{ textarea('notes', 'Anything we should know?', values.notes, errors.notes, hint='Optional: a noise, a warning light, when you can drop it off', rows=3, attrs='maxlength="600"') }}
       <div class="form-actions">
         <button class="button" type="submit">Book {{ start|clock }}</button>

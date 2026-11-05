@@ -251,6 +251,9 @@ class Service(Base):
     # "Do it again after this many months or km, whichever comes first" (PMS, oil). 0 = no reminder.
     again_months: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     again_km: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    # The "Other Service" choice: the customer writes what they need, books a time to
+    # have it checked (work_minutes), and the shop sends the price after (quotes.py).
+    is_other: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
     bay_type: Mapped[BayType] = relationship()
     skill: Mapped[Skill | None] = relationship()
@@ -310,6 +313,12 @@ STATUS_LABELS = {BOOKED: "Booked", CHECKED_IN: "Checked in", NO_SHOW: "No-show",
 # the rest of its time; a cancelled booking gives back all of it.)
 LIVE_STATUSES = (BOOKED, CHECKED_IN)
 ONLINE, PHONE, WALK_IN = "online", "phone", "walk_in"
+
+# An Other Service's price (quotes.py): booked -> the shop sends a price -> the customer answers.
+TO_PRICE, PRICED, ACCEPTED, DECLINED = "to_price", "priced", "accepted", "declined"
+QUOTE_LABELS = {TO_PRICE: "Price to send", PRICED: "Waiting for the customer", ACCEPTED: "Price accepted",
+                DECLINED: "Price declined"}
+QUOTE_OPEN = (TO_PRICE, PRICED)  # the price isn't agreed yet
 SOURCE_LABELS = {ONLINE: "Online", PHONE: "Phone", WALK_IN: "Walk-in"}
 
 
@@ -341,6 +350,14 @@ class Appointment(Base):
     checked_in_at: Mapped[datetime | None] = mapped_column(DateTime)
     mileage_in: Mapped[int | None] = mapped_column(Integer)  # km on the odometer at check-in
     no_show_at: Mapped[datetime | None] = mapped_column(DateTime)
+    # The Other Service (quotes.py): what the customer asked for, and the price the shop sent.
+    request_text: Mapped[str] = mapped_column(Text, default="", server_default="")
+    quote_status: Mapped[str] = mapped_column(String(12), default="", server_default="", index=True)
+    quote_price: Mapped[int | None] = mapped_column(Integer)  # centavos
+    quote_note: Mapped[str] = mapped_column(String(300), default="", server_default="")
+    quoted_at: Mapped[datetime | None] = mapped_column(DateTime)
+    quoted_by: Mapped[str] = mapped_column(String(80), default="", server_default="")  # who sent the price
+    quote_decided_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The booking form's one-time key: pressing "Book" twice makes one booking.
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -361,6 +378,11 @@ class Appointment(Base):
     def price_from(self):
         return sum(line.price_from for line in self.lines)
 
+    @property
+    def price_open(self):
+        """True while an Other Service's price isn't agreed: the total is "from" plus that price."""
+        return self.quote_status in QUOTE_OPEN
+
 
 class AppointmentService(Base):
     """A service on a booking, copied as it was then: a later price change doesn't rewrite old bookings."""
@@ -372,6 +394,8 @@ class AppointmentService(Base):
     name: Mapped[str] = mapped_column(String(80))
     price_from: Mapped[int] = mapped_column(Integer)
     work_minutes: Mapped[int] = mapped_column(Integer)
+    # The Other Service: its price is 0 until the customer accepts the shop's price.
+    is_other: Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
 
 
 class Hold(Base):
@@ -385,6 +409,7 @@ class Hold(Base):
     token: Mapped[str] = mapped_column(String(48), unique=True)
     vehicle_kind: Mapped[str] = mapped_column(String(8))
     service_ids: Mapped[str] = mapped_column(String(200))  # "3,5"
+    request_text: Mapped[str] = mapped_column(Text, default="", server_default="")  # for the Other Service
     bay_id: Mapped[int] = mapped_column(ForeignKey("bays.id", ondelete="CASCADE"))
     mechanic_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     starts_at: Mapped[datetime] = mapped_column(DateTime)
@@ -671,6 +696,7 @@ class WaitlistEntry(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     vehicle_kind: Mapped[str] = mapped_column(String(8))
     service_ids: Mapped[str] = mapped_column(String(200))
+    request_text: Mapped[str] = mapped_column(Text, default="", server_default="")  # for the Other Service
     first_day: Mapped[date] = mapped_column(Date)
     last_day: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String(12), default=WAITING, index=True)

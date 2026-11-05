@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "_desk.html" import actions, status_pill, timeline with context %}
+{% from "_macros.html" import quote_pill %}
 {% block title %}Today - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="page-head">
@@ -44,6 +45,32 @@
           </li>
         {% endfor %}
       </ul>
+    </section>
+  {% endif %}
+
+  {% if requests %}
+    {% set to_send = requests|selectattr('quote_status', 'equalto', 'to_price')|list|length %}
+    <section class="card table-card">
+      <div class="card-head table-title">
+        <h2>Other Services to Price</h2>
+        <span class="muted small">{{ to_send }} to send · {{ requests|length - to_send }} waiting for the customer</span>
+      </div>
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">When</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">What they asked for</th><th scope="col">Price</th></tr></thead>
+          <tbody>
+            {% for item in requests %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">
+                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">{{ item.starts_at|local_moment(shop.timezone) }}</a></td>
+                <td>{{ item.customer.name }}</td>
+                <td>{{ item.vehicle.label }}</td>
+                <td class="request-cell">“{{ item.request_text }}”</td>
+                <td>{{ quote_pill(item.quote_status) }}{% if item.quote_price %} <span class="small">{{ item.quote_price|peso }}</span>{% endif %}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
     </section>
   {% endif %}
 

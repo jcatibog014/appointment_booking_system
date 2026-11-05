@@ -64,7 +64,7 @@ def test_round_up_to_the_next_quarter_hour():
 
 @pytest.fixture
 def shop(ctx):
-    """The starter shop (Lift 1, Moto Stand 1, the 14 services) plus Car Bay 1, with three mechanics:
+    """The starter shop (Lift 1, Moto Stand 1, the 16 services) plus Car Bay 1, with three mechanics:
     Jun: Engine, Brakes, Electrical, works the shop's hours.
     Ana: Aircon only, off on Mondays.
     Rico: Motorcycle and Tires, 10:00 to 5:00 on weekdays only."""

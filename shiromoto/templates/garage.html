@@ -7,7 +7,11 @@
       <a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a>
       <span class="muted small">{{ item.lines|map(attribute='name')|join(' + ') }} · {{ item.vehicle.label }} · {{ item.ref }}</span>
     </div>
-    <span class="pill pill-{{ item.status }}">{{ STATUS_LABELS[item.status] }}</span>
+    {% if item.quote_status == 'priced' and item.status == 'booked' %}
+      <a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">Price to confirm</a>
+    {% else %}
+      <span class="pill pill-{{ item.status }}">{{ STATUS_LABELS[item.status] }}</span>
+    {% endif %}
   </li>
 {% endmacro %}
 {% block content %}

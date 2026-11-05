@@ -555,6 +555,21 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .visit-lines { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; flex: 1; min-width: 14rem; }
 .visit-services { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0; padding: 0; list-style: none; font-weight: 600; }
 .visit-services li + li::before { content: "+"; margin-right: 1rem; color: var(--ink-soft); font-weight: 400; }
+/* The Other Service: what the customer asked for, and its price (quotes.py). */
+.visit-request { flex-basis: 100%; margin: .5rem 0 0; overflow-wrap: anywhere; }
+.other-request { display: grid; gap: .35rem; margin: -.1rem 0 0; padding: .1rem .9rem .75rem 2.8rem; }
+.other-request .field { margin: 0; }
+.other-request p { margin: 0; }
+.request-text { margin: 0 0 1rem; font-size: 1.05rem; font-style: italic; overflow-wrap: anywhere; }
+.request-cell { min-width: 14rem; max-width: 26rem; overflow-wrap: anywhere; }
+.quote-figure { display: grid; gap: .25rem; margin-bottom: .5rem; }
+.quote-figure p { margin: 0; }
+.quote-price { font-family: var(--headline); font-size: 1.8rem; font-weight: 700; }
+.other-card .actions { margin-top: 1rem; }
+.other-card .actions form { display: inline; }
+.quote-form { margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid var(--rule); }
+.quote-form .subhead { margin: 0; }
+@media (max-width: 47.99rem) { .other-request { padding-left: .9rem; } }
 .facts { display: flex; flex-wrap: wrap; gap: .5rem 2rem; margin: 0; }
 .facts div { display: flex; flex-direction: column; }
 .facts dt { font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }

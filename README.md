@@ -10,14 +10,14 @@ It was built in 8 stages (the plan is in `docs/PLAN.md`). It also installs on a 
 
 ## Who Uses It
 
-**Try it:** press **Try Demo** on the login page. You get a private sample shop with 7 bays, 4 mechanics, 14 services, parts, four weeks of history and a car waiting for its owner's approval. It is yours alone, and it is deleted after 2 hours. **View as** (at the top) lets you see the shop as the service advisor, a mechanic or Carlo, a customer.
+**Try it:** press **Try Demo** on the login page. You get a private sample shop with 7 bays, 4 mechanics, 16 services (two of them Other Services), parts, four weeks of history, a car waiting for its owner's approval, and a price for Carlo to confirm. It is yours alone, and it is deleted after 2 hours. **View as** (at the top) lets you see the shop as the service advisor, a mechanic or Carlo, a customer.
 
 | Role | Can do |
 |---|---|
 | Owner | Everything, including the shop's Settings, parts and Insights |
 | Service advisor | The front desk: bookings, walk-ins, check-in, customers, parts, waitlist |
 | Mechanic | Their jobs, the calendar and their own week |
-| Customer | Book (as a guest or with an account), move, cancel, approve estimates, My Garage |
+| Customer | Book (as a guest or with an account), ask for a service that isn't listed, move, cancel, approve prices and estimates, My Garage |
 
 ## The Shop's Pieces
 
@@ -135,6 +135,21 @@ Checked in → Inspecting → Waiting for approval → In progress → Ready for
 - **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
 - **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
 
+## A Service That Isn't on the List
+
+Every vehicle has an **Other Service** at the end of its list, for work the shop doesn't list (like "the horn stopped working").
+
+1. The customer writes **what they need** and books a time, like any other service. The time is the Other Service's own working time (1 hour to begin with), so the shop has time to check it. Its price says **Price after we check**.
+2. On **Today**, the desk sees **Other Services to Price**. The owner, a service advisor or a mechanic opens the booking, writes the price and a short note, and presses **Send the price**. The customer gets a message by email and on their phone (if they turned it on).
+3. The customer opens their link and presses **Confirm** or **Decline**. My Garage shows **Price to confirm** until they answer.
+   - **Confirm:** the price becomes part of the booking.
+   - **Decline:** the Other Service comes off the booking, and the booking gets shorter. If it was the only service, the booking is cancelled, and its time is free for someone else.
+   - The desk gets a notice either way. A customer who calls can tell the desk, and the desk records the answer.
+
+**Only one answer counts.** The answer is one `UPDATE ... WHERE quote_status = 'priced' AND quote_price = <the price the customer saw>`. So a double tap counts once, Confirm and Decline pressed at the same moment can't both win (a thread test checks this 5 times), and if the shop changed the price a moment before, an answer to the old price is refused and the customer sees the new one.
+
+The owner can change the Other Service's time, bay and skill in **Settings → Services and Prices**, or turn it off by unticking "Customers can book it".
+
 ## Notices, the Waitlist and the Phone App
 
 **Notices.** Customers get a message when they book, when a booking moves or is cancelled, the evening before (from 5 PM), when there's an estimate to approve, when the vehicle is ready, and a week before a PMS is due. The front desk gets a push notice for each new online booking.
@@ -186,6 +201,8 @@ For the owner, over the last 7, 30 or 90 days:
 | ![Book: free times](docs/screenshots/book-times.png) Book: free times | ![Your details, with the time kept for you](docs/screenshots/book-details.png) Your details (the time is kept) |
 | ![A booking's page](docs/screenshots/booking.png) A booking's page | ![The customer approves the estimate](docs/screenshots/estimate.png) The customer approves an estimate |
 | ![My Garage](docs/screenshots/garage.png) My Garage | ![Joining the waitlist](docs/screenshots/waitlist-join.png) Join the waitlist |
+| ![The Other Service: write what you need](docs/screenshots/other-service.png) Other Service: write what you need | ![The customer confirms or declines the price](docs/screenshots/other-price.png) The customer confirms the price |
+| ![Sending the price, as staff](docs/screenshots/other-desk.png) Sending the price (staff) | ![The price on a phone, in dark mode](docs/screenshots/other-price-phone.png) The price on a phone, dark mode |
 | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone |
 | ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Make an account](docs/screenshots/signup.png) Make an account |
 

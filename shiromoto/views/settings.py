@@ -383,6 +383,9 @@ def read_service(s, shop, form, service_id=None):
         errors["skill_id"] = "Choose a skill."
     values["skill_id"] = skill.id if skill else None
     values["is_active"] = forms.checked(form, "is_active")
+    values["is_other"] = forms.checked(form, "is_other")
+    if values["is_other"]:
+        values["price_from"], errors["price_from"] = 0, None  # its price is sent after the booking
     values["again_months"], errors["again_months"] = forms.whole_number(form, "again_months", 0, 36,
                                                                         "the months") if form.get("again_months") else (0, None)
     values["again_km"], errors["again_km"] = forms.whole_number(form, "again_km", 0, 100000,

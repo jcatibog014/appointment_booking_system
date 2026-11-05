@@ -26,7 +26,7 @@ from sqlalchemy import or_, select, update
 from sqlalchemy.exc import IntegrityError
 
 from .dates import at, local_today, to_local
-from .formatting import clock, day
+from .formatting import clock, day, peso
 from .models import ADVISOR, EMAIL, FAILED, LIVE_STATUSES, OWNER, PENDING, PUSH, SENT, SKIPPED, Appointment, \
     Notification, PushSubscription, Shop, User
 
@@ -118,11 +118,33 @@ def booked(s, shop, appointment, now):
     for_customer(s, shop, appointment, "confirmed", f"Booked: {services}, {when(appointment, shop)}",
                  f"Hi {appointment.customer.name.split()[0]}, your booking {appointment.ref} at {shop.name} is "
                  f"confirmed: {services} for {appointment.vehicle.plate} on {when(appointment, shop)}. "
-                 "You can move or cancel it from the link.", now)
+                 + ("We'll check what you asked for and send you its price. " if appointment.price_open else "")
+                 + "You can move or cancel it from the link.", now)
     if appointment.source == "online":
         to_staff(s, shop, "new_booking", f"New online booking: {appointment.vehicle.plate}",
-                 f"{appointment.customer.name} booked {services} for {when(appointment, shop)}.",
+                 f"{appointment.customer.name} booked {services} for {when(appointment, shop)}."
+                 + (f" Needs a price: “{appointment.request_text}”" if appointment.price_open else ""),
                  url_for("bookings.show", ref=appointment.ref, _external=True), f"new:{appointment.id}", now)
+
+
+def price_sent(s, shop, appointment, now):
+    """The shop priced the Other Service: the customer decides from their link."""
+    for_customer(s, shop, appointment, "price", f"Your price: {peso(appointment.quote_price)}",
+                 f"Hi {appointment.customer.name.split()[0]}, we checked what you asked for on booking "
+                 f"{appointment.ref} (“{appointment.request_text}”). The price is "
+                 f"{peso(appointment.quote_price)}."
+                 + (f" {appointment.quote_note}" if appointment.quote_note else "")
+                 + " Please open the link to confirm it or decline it.", now,
+                 dedupe=f"price:{appointment.id}:{appointment.version}")
+
+
+def price_answered(s, shop, appointment, now):
+    """Tell the desk what the customer decided."""
+    answer = "accepted" if appointment.quote_status == "accepted" else "declined"
+    to_staff(s, shop, "price_answer", f"Price {answer}: {appointment.vehicle.plate}",
+             f"{appointment.customer.name} {answer} {peso(appointment.quote_price)} for booking {appointment.ref}."
+             + (" The booking is cancelled." if appointment.status == "cancelled" else ""),
+             url_for("bookings.show", ref=appointment.ref, _external=True), f"answer:{appointment.id}", now)
 
 
 def moved(s, shop, appointment, now):

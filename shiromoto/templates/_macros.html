@@ -1,5 +1,21 @@
 {# Small building blocks used by many pages. #}
 
+{# A booking's price: "from ₱1,800", and the Other Service's part while it isn't priced yet. #}
+{% macro visit_price(total, open) -%}
+  {%- if open and not total %}After we check{% elif open %}from {{ total|peso }} + the other service{% else %}from {{ total|peso }}{% endif -%}
+{%- endmacro %}
+
+{# One service's price on a list: the Other Service's comes after the booking. #}
+{% macro service_price(service) -%}
+  {%- if service.is_other %}Price after we check{% else %}from {{ service.price_from|peso }}{% endif -%}
+{%- endmacro %}
+
+{# The Other Service's price, as a pill: staff and the customer each see it from their side. #}
+{% macro quote_pill(status, for_customer=False) -%}
+  {%- set customer_labels = {'to_price': 'Being checked', 'priced': 'Price to confirm', 'accepted': 'Confirmed', 'declined': 'Declined'} -%}
+  <span class="pill {{ {'to_price': 'pill-no_show', 'priced': 'job-awaiting_approval', 'accepted': 'pill-booked', 'declined': 'pill-off'}[status] }}">{{ customer_labels[status] if for_customer else QUOTE_LABELS[status] }}</span>
+{%- endmacro %}
+
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}
 
 {% macro field(name, label, value='', error=None, type='text', hint=None, attrs='') %}

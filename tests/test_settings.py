@@ -22,7 +22,7 @@ def test_the_owner_sees_every_setup_page_on_the_hub(owner):
     for title in ("Opening Hours", "Closures and Leave", "Bays", "Services and Prices", "Staff", "Appearance",
                   "Log Out"):
         assert title in page
-    assert "Open 6 days a week" in page and "14 services offered" in page
+    assert "Open 6 days a week" in page and "16 services offered" in page
 
 
 def test_everyone_can_change_their_name_and_phone(app, mechanic, mechanic_id):

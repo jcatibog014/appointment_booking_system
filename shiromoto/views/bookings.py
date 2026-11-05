@@ -246,3 +246,57 @@ def decide(ref, line_id):
     else:
         flash(f"{'Approved' if approve else 'Declined'}: {line.description}. Thank you!")
     return redirect(url_for("bookings.show", ref=appointment.ref) + "#estimate")
+
+
+# ---------- The Other Service's price (quotes.py) ----------
+
+@bp.post("/<ref>/price")
+def send_price(ref):
+    """Staff send or change the price of what the customer asked for."""
+    from .. import forms, quotes
+    appointment = open_booking(ref)
+    if not by_staff():
+        abort(404)
+    s = db.session()
+    price, problem = forms.pesos(request.form, "price")
+    try:
+        if problem:
+            raise booking.BookingError(problem)
+        quotes.send_price(s, shops.current(), appointment, price, request.form.get("note", ""), utcnow(), g.user,
+                          version=request.form.get("version", type=int))
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        notices.safely(s, notices.price_sent, shops.current(), appointment, utcnow())
+        flash(f"Price sent to {appointment.customer.name}. They confirm or decline it from their link.")
+    return redirect(url_for("bookings.show", ref=appointment.ref) + "#other-service")
+
+
+@bp.post("/<ref>/price/answer")
+def answer_price(ref):
+    """The customer confirms or declines the price they were shown."""
+    from .. import quotes
+    appointment = open_booking(ref)
+    s = db.session()
+    shown = request.form.get("price", type=int)
+    accept = request.form.get("answer") == "accept"
+    try:
+        if accept:
+            quotes.accept(s, shops.current(), appointment, shown, utcnow())
+        else:
+            quotes.decline(s, shops.current(), appointment, shown, utcnow())
+    except booking.BookingError as error:
+        s.rollback()
+        flash(str(error), "error")
+    else:
+        notices.safely(s, notices.price_answered, shops.current(), appointment, utcnow())
+        if accept:
+            flash("Thank you! The price is confirmed, and your booking stays as it is.")
+        elif appointment.status == "cancelled":
+            flash(f"Declined. Booking {appointment.ref} is cancelled, and nothing is charged.")
+            offer_freed_time(s)
+        else:
+            flash("Declined. We took the other service off your booking. The rest stays as it is.")
+            offer_freed_time(s)
+    return redirect(url_for("bookings.show", ref=appointment.ref) + "#other-service")

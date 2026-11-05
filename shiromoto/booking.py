@@ -33,11 +33,13 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from . import slots
 from .dates import at, to_local
-from .models import BOOKED, CANCELLED, CHECKED_IN, NO_SHOW, ONLINE, Appointment, AppointmentService, Bay, BookedSlot, Customer, Hold, \
-    Service, User, Vehicle
+from .models import BOOKED, CANCELLED, CHECKED_IN, NO_SHOW, ONLINE, TO_PRICE, Appointment, AppointmentService, \
+    Bay, BookedSlot, Customer, Hold, Service, User, Vehicle
 
 CELL = timedelta(minutes=slots.STEP)
 MAX_ATTEMPTS = 3  # a lost race is tried again this many times, with a fresh look at the day
+REQUEST_MAX = 400  # characters for "what do you need?" on the Other Service
+OTHER_NEEDS_TEXT = "Tell us what you need, so we can check it and send you the price."
 MAX_HOLDS = 40  # live holds per shop, so a script can't hold every time at once
 REF_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I/L: easy to read out on the phone
 
@@ -201,7 +203,7 @@ def purge_holds(s, shop, now):
               .execution_options(synchronize_session=False))
 
 
-def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None):
+def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None, request_text=""):
     """Keep `start` on `day` for shop.hold_minutes. Returns the Hold, or raises Taken.
     Staff (`by` is staff) may book from right now: a walk-in needs no notice."""
     notice = 0 if by is not None and by.is_staff else None
@@ -220,6 +222,7 @@ def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None
             option, bay = pick(slot)
             held = Hold(shop_id=shop.id, token=secrets.token_urlsafe(24), vehicle_kind=vehicle_kind,
                         service_ids=",".join(str(sv.id) for sv in services), bay_id=bay.id,
+                        request_text=request_text if any(sv.is_other for sv in services) else "",
                         mechanic_id=option.mechanic.id, starts_at=slots.start_moment(shop, day, start),
                         ends_at=slots.start_moment(shop, day, option.end), work_minutes=need.work_minutes,
                         created_by_id=by.id if by else None, created_at=now,
@@ -302,6 +305,9 @@ def confirm(s, shop, held, details, key, now, user=None, source=ONLINE):
         services = services_by_ids(s, shop, [int(i) for i in held.service_ids.split(",") if i])
         if not services:
             raise BookingError("These services aren't offered any more. Please call the shop.")
+        request_text = (details.get("request") or held.request_text or "").strip()
+        if any(sv.is_other for sv in services) and not request_text:
+            raise BookingError(OTHER_NEEDS_TEXT)
         customer = find_customer(s, shop, details, user, now)
         vehicle = find_vehicle(s, shop, customer, held.vehicle_kind, details, now)
         token = secrets.token_urlsafe(18)
@@ -311,8 +317,8 @@ def confirm(s, shop, held, details, key, now, user=None, source=ONLINE):
             ends_at=held.ends_at, work_minutes=held.work_minutes, status=BOOKED, source=source,
             notes=details.get("notes", ""), idempotency_key=key, created_by_id=user.id if user else None,
             created_at=now, updated_at=now)
-        appointment.lines = [AppointmentService(service_id=sv.id, name=sv.name, price_from=sv.price_from,
-                                                work_minutes=sv.work_minutes) for sv in services]
+        appointment.lines = lines_for(services)
+        set_request(appointment, services, request_text)
         s.add(appointment)
         s.flush()
         # The hold's cells become the booking's cells. If someone purged the hold
@@ -337,7 +343,22 @@ def confirm(s, shop, held, details, key, now, user=None, source=ONLINE):
     return appointment
 
 
-def place(s, shop, services, vehicle, customer, day, start, now, source=ONLINE, notes="", status=BOOKED):
+def lines_for(services):
+    """A booking's copy of its services. The Other Service's price is 0 until the customer
+    accepts the shop's price (quotes.accept)."""
+    return [AppointmentService(service_id=sv.id, name=sv.name, price_from=0 if sv.is_other else sv.price_from,
+                               work_minutes=sv.work_minutes, is_other=sv.is_other) for sv in services]
+
+
+def set_request(appointment, services, request_text):
+    """An Other Service on the booking: keep what the customer asked for; the shop prices it next."""
+    if any(sv.is_other for sv in services):
+        appointment.request_text = request_text.strip()[:REQUEST_MAX]
+        appointment.quote_status = TO_PRICE
+
+
+def place(s, shop, services, vehicle, customer, day, start, now, source=ONLINE, notes="", status=BOOKED,
+          request_text=""):
     """Book straight away, without a hold or the booking rules: for sample data.
     Returns the Appointment, or None if that time isn't free."""
     need, problem = slots.need_for(services, vehicle.kind)
@@ -352,8 +373,8 @@ def place(s, shop, services, vehicle, customer, day, start, now, source=ONLINE, 
         vehicle_id=vehicle.id, bay_id=bay.id, mechanic_id=option.mechanic.id,
         starts_at=slots.start_moment(shop, day, start), ends_at=slots.start_moment(shop, day, option.end),
         work_minutes=need.work_minutes, status=status, source=source, notes=notes, created_at=now, updated_at=now)
-    appointment.lines = [AppointmentService(service_id=sv.id, name=sv.name, price_from=sv.price_from,
-                                            work_minutes=sv.work_minutes) for sv in services]
+    appointment.lines = lines_for(services)
+    set_request(appointment, services, request_text or "Please check it.")
     s.add(appointment)
     s.flush()
     if status == BOOKED:

@@ -14,7 +14,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 
-from .. import auth, booking, db, forms, shops, timeline
+from .. import auth, booking, db, forms, quotes, shops, timeline
 from ..auth import roles_required, staff_required
 from ..dates import at, parse_day, to_local, utcnow, week_start
 from ..models import ADVISOR, BOOKED, CHECKED_IN, LIVE_STATUSES, NO_SHOW, OWNER, SOURCE_LABELS, STATUS_LABELS, \
@@ -75,7 +75,7 @@ def today():
         working=sum(off is None for _, _, _, off in plan["mechanics"]), coming=coming, steps=steps, queue=queue,
         steps_left=sum(not done for _, done, _ in steps), board=timeline.build(s, shop, day, moment, by), by=by,
         counts={status: sum(item.status == status for item in queue) for status in STATUS_LABELS},
-        now=moment, can_act=g.user.role in (OWNER, ADVISOR))
+        now=moment, can_act=g.user.role in (OWNER, ADVISOR), requests=quotes.open_requests(s, shop, moment))
 
 
 # ---------- Calendar ----------
