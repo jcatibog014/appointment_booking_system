@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf %}
+{% block title %}Almost Ready - {{ APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="empty-state">
+    <p class="kicker">Almost ready</p>
+    <h1>The Shop Isn't Set Up Yet</h1>
+    <p>The owner makes the shop on the command line: <code>flask --app shiromoto create-owner you@example.com</code>.
+      Until then, you can look around a sample shop.</p>
+    <form method="post" action="{{ url_for('auth.demo') }}">
+      {{ csrf() }}
+      <button class="button" type="submit">Try Demo</button>
+    </form>
+  </div>
+{% endblock %}

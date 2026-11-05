@@ -1,0 +1,6 @@
+{% from "_macros.html" import wordmark %}
+{# The panel beside the login card: charcoal with a faint diamond-plate texture. #}
+<section class="welcome-panel">
+  {{ wordmark(url_for('public.home'), shop.name if shop else APP_NAME) }}
+  <p class="welcome-line">Car and motorcycle care, booked in a minute.</p>
+</section>

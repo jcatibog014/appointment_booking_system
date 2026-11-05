@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, select, textarea %}
+{% set is_new = service.id is none %}
+{% block title %}{{ 'Add Service' if is_new else service.name }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    {{ back(url_for('settings.services'), 'Services and Prices') }}
+    <div class="page-head"><h1>{{ 'Add Service' if is_new else 'Edit Service' }}</h1></div>
+    <form method="post" class="card stack" {% if not is_new %}data-watch-changes{% endif %}>
+      {{ csrf() }}
+      {{ field('name', 'Name', service.name, errors.name, attrs='required maxlength="80"') }}
+      <div class="form-grid">
+        {{ field('category', 'Category', service.category, errors.category, hint='Groups it on the price list', attrs='required maxlength="40" list="categories"') }}
+        <datalist id="categories">{% for name in categories %}<option value="{{ name }}">{% endfor %}</datalist>
+        {{ field('price_from', 'Price from (₱)', service.price_from|pesos_input, errors.price_from, attrs='inputmode="decimal" placeholder="0"') }}
+        {{ select('vehicle_kind', 'For', [('car', 'Cars'), ('moto', 'Motorcycles'), ('any', 'Cars and motorcycles')], service.vehicle_kind, errors.vehicle_kind) }}
+        {{ select('bay_type_id', 'Needs a', bay_options, service.bay_type_id, errors.bay_type_id) }}
+        {{ select('work_minutes', 'Working time', minute_options, service.work_minutes, errors.work_minutes, hint='Breaks don’t count') }}
+        {{ select('buffer_minutes', 'Clean-up after', buffer_options, service.buffer_minutes, errors.buffer_minutes) }}
+        {{ select('skill_id', 'Mechanic skill', [('', 'Any mechanic')] + skill_options, service.skill_id or '', errors.skill_id) }}
+      </div>
+      {{ textarea('description', 'Description', service.description, errors.description, hint='Shown on the price list', rows=3, attrs='maxlength="600"') }}
+      <label class="check"><input type="checkbox" name="is_active" value="1"{% if service.is_active %} checked{% endif %}> Customers can book it</label>
+      <div class="form-actions">
+        <a class="button button-quiet" href="{{ url_for('settings.services') }}">Cancel</a>
+        <button class="button" type="submit">{{ 'Add service' if is_new else 'Save service' }}</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

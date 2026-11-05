@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% block title %}{{ shop.name }} - Car and Motorcycle Service{% endblock %}
+{% block page_class %}home{% endblock %}
+{% block content %}
+  <section class="hero">
+    <div class="hero-text">
+      <p class="kicker">Car and motorcycle service</p>
+      <h1>{{ shop.name }}</h1>
+      {% if shop.tagline %}<p class="hero-line">{{ shop.tagline }}</p>{% endif %}
+      {% if shop.phone %}
+        <p class="actions">
+          <a class="button" href="tel:{{ shop.phone|replace(' ', '') }}">Call {{ shop.phone }} to book</a>
+          <a class="button button-quiet" href="#services">See services and prices</a>
+        </p>
+      {% endif %}
+    </div>
+    {% set now_hours = hours[today.weekday()] %}
+    <div class="hero-card card">
+      <h2>Today, {{ today|day }}</h2>
+      {% set shut = closures|selectattr('starts_on', 'le', today)|selectattr('ends_on', 'ge', today)|selectattr('from_time', 'none')|list %}
+      {% if shut %}
+        <p class="status status-closed">Closed: {{ shut[0].reason }}</p>
+      {% elif now_hours.is_open %}
+        <p class="status status-open">Open {{ now_hours.opens|clock }} to {{ now_hours.closes|clock }}</p>
+        {% if now_hours.break_starts %}<p class="muted small">Lunch break {{ now_hours.break_starts|clock }} to {{ now_hours.break_ends|clock }}</p>{% endif %}
+      {% else %}
+        <p class="status status-closed">Closed today</p>
+      {% endif %}
+      {% if shop.address %}<p class="small">{{ shop.address }}</p>{% endif %}
+    </div>
+  </section>
+
+  <section id="services" class="section">
+    <div class="section-head">
+      <h2>Services and Prices</h2>
+      <p class="muted">Prices start from the amount shown. We always tell you the full price before any extra work.</p>
+    </div>
+    <div class="menu-columns">
+      {% for kind, title in (('car', 'Cars'), ('moto', 'Motorcycles')) %}
+        <div class="menu-column" id="{{ kind }}">
+          <h3 class="menu-title"><span class="vehicle-tag vehicle-{{ kind }}">{{ title }}</span></h3>
+          {% for category, services in menu[kind].items() %}
+            <div class="menu-group">
+              <h4>{{ category }}</h4>
+              <ul class="price-list">
+                {% for service in services %}
+                  <li>
+                    <div class="price-name">
+                      <strong>{{ service.name }}</strong>
+                      {% if service.description %}<span class="muted small">{{ service.description }}</span>{% endif %}
+                    </div>
+                    <div class="price-figure">
+                      <span class="price">from {{ service.price_from|peso }}</span>
+                      <span class="muted small">about {{ service.work_minutes|duration }}</span>
+                    </div>
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <p class="muted">No {{ title|lower }} services yet.</p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="hours" class="section grid-2">
+    <div class="card">
+      <h2>Opening Hours</h2>
+      <table class="hours-table">
+        <tbody>
+          {% for day in range(7) %}
+            {% set row = hours[day] %}
+            <tr{% if day == today.weekday() %} class="is-today"{% endif %}>
+              <th scope="row">{{ WEEKDAYS[day] }}{% if day == today.weekday() %} <span class="visually-hidden">(today)</span>{% endif %}</th>
+              <td>{% if row.is_open %}{{ row.opens|clock }} – {{ row.closes|clock }}{% else %}Closed{% endif %}</td>
+              <td class="muted small">{% if row.is_open and row.break_starts %}Lunch {{ row.break_starts|clock }} – {{ row.break_ends|clock }}{% endif %}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h2>Closed Soon</h2>
+      {% if closures %}
+        <ul class="plain-list">
+          {% for closure in closures %}
+            <li>
+              <strong>{{ closure.starts_on|day_range(closure.ends_on) }}</strong>
+              {% if closure.from_time %}<span class="muted">{{ closure.from_time|clock }} – {{ closure.to_time|clock }}</span>{% endif %}
+              <span class="muted">· {{ closure.reason }}</span>
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p class="muted">We're open as usual for the next 30 days.</p>
+      {% endif %}
+      {% if shop.phone or shop.email %}
+        <h3 class="contact-title">Contact</h3>
+        <p class="small">{% if shop.phone %}<a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>{% endif %}
+          {% if shop.phone and shop.email %} · {% endif %}
+          {% if shop.email %}<a href="mailto:{{ shop.email }}">{{ shop.email }}</a>{% endif %}</p>
+      {% endif %}
+    </div>
+  </section>
+{% endblock %}

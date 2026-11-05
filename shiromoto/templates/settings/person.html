@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, role_pill, time_input %}
+{% block title %}{{ person.name }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings">
+    {{ back(url_for('settings.staff'), 'Staff') }}
+    <div class="page-head">
+      <div class="title-row"><h1>{{ person.name }}</h1>{{ role_pill(person.role) }}</div>
+      <p class="page-sub">{{ person.email }}{% if person.phone %} · {{ person.phone }}{% endif %}</p>
+    </div>
+
+    {% if person.id != g.user.id %}
+      <section class="setting">
+        <div class="setting-text"><h2>Role</h2><p>What {{ person.first_name }} can open and change.</p></div>
+        <form method="post" class="actions setting-account-actions">
+          {{ csrf() }}
+          <input type="hidden" name="action" value="role">
+          <label class="visually-hidden" for="role">Role</label>
+          <select class="control control-auto" name="role" id="role">
+            {% for role in ('mechanic', 'advisor', 'owner') %}<option value="{{ role }}"{% if role == person.role %} selected{% endif %}>{{ ROLE_LABELS[role] }}</option>{% endfor %}
+          </select>
+          <button class="button button-quiet" type="submit">Change role</button>
+        </form>
+      </section>
+    {% endif %}
+
+    {% if person.role == 'mechanic' %}
+      <section class="setting">
+        <div class="setting-text"><h2>Skills</h2><p>A service that needs a skill only goes to mechanics who have it.</p></div>
+        <form method="post" class="stack" data-watch-changes>
+          {{ csrf() }}
+          <input type="hidden" name="action" value="skills">
+          {% set mine = person.skills|map(attribute='id')|list %}
+          <fieldset class="check-grid plain-fieldset">
+            <legend class="visually-hidden">Skills</legend>
+            {% for skill in skills %}
+              <label class="check"><input type="checkbox" name="skill" value="{{ skill.id }}"{% if skill.id in mine %} checked{% endif %}> {{ skill.name }}</label>
+            {% endfor %}
+          </fieldset>
+          <div class="form-actions"><button class="button" type="submit">Save skills</button></div>
+        </form>
+      </section>
+
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Working Hours</h2>
+          <p>{% if own %}{{ person.first_name }}'s own week, inside the shop's hours. The shop's lunch break counts for everyone.{% else %}{{ person.first_name }} works whenever the shop is open. Set a different week here.{% endif %}</p>
+          {% if own %}
+            <form method="post">
+              {{ csrf() }}
+              <input type="hidden" name="action" value="same_as_shop">
+              <button class="link-button small" type="submit">Use the shop's hours again</button>
+            </form>
+          {% endif %}
+        </div>
+        <form method="post" class="stack" data-watch-changes>
+          {{ csrf() }}
+          <input type="hidden" name="action" value="hours">
+          <div class="table-scroll">
+            <table class="table week-table compact">
+              <thead><tr><th scope="col">Day</th><th scope="col">Works</th><th scope="col">Starts</th><th scope="col">Ends</th></tr></thead>
+              <tbody>
+                {% for day in range(7) %}
+                  {% set shop_day = week[day] %}
+                  {% set row = own.get(day) %}
+                  {% set works = row.works if row else shop_day.is_open %}
+                  <tr>
+                    <th scope="row">{{ WEEKDAYS[day] }}{% if not shop_day.is_open %} <span class="muted small">(shop closed)</span>{% endif %}</th>
+                    <td><label class="check"><input type="checkbox" name="works-{{ day }}" value="1"{% if works %} checked{% endif %}><span class="visually-hidden">Works on {{ WEEKDAYS[day] }}</span></label></td>
+                    <td>{{ time_input('starts-' ~ day, row.starts if row and row.starts else shop_day.opens, errors['starts-' ~ day], WEEKDAYS[day] ~ ' starts') }}</td>
+                    <td>{{ time_input('ends-' ~ day, row.ends if row and row.ends else shop_day.closes, errors['ends-' ~ day], WEEKDAYS[day] ~ ' ends') }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="form-actions"><button class="button" type="submit">Save hours</button></div>
+        </form>
+      </section>
+    {% endif %}
+
+    {% if person.id != g.user.id %}
+      <section class="setting">
+        <div class="setting-text">
+          <h2>Login</h2>
+          <p>{{ 'Switch it off when someone leaves the shop. Their past work stays.' if person.is_active else person.first_name ~ " can't log in now." }}</p>
+        </div>
+        <form method="post" class="actions setting-account-actions"{% if person.is_active %} data-confirm="{{ person.name }} won't be able to log in. Continue?"{% endif %}>
+          {{ csrf() }}
+          <input type="hidden" name="action" value="active">
+          <button class="button {{ 'button-danger' if person.is_active else 'button-quiet' }}" type="submit">{{ 'Switch off login' if person.is_active else 'Let them log in again' }}</button>
+        </form>
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

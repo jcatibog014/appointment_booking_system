@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back, csrf, field, select %}
+{% block title %}Bays - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="settings settings-wide">
+    {{ back(url_for('settings.index'), 'Settings') }}
+    <div class="page-head">
+      <h1>Bays</h1>
+      <p class="page-sub">A bay holds one vehicle at a time, so it can never be booked twice for the same minutes. Each service needs one kind of bay.</p>
+    </div>
+    <div class="split">
+      <div>
+        {% for bay_type in types %}
+          <section class="card">
+            <div class="card-head">
+              <h2>{{ bay_type.name }}</h2>
+              <span class="vehicle-tag vehicle-{{ bay_type.vehicle_kind }}">{{ VEHICLE_LABELS[bay_type.vehicle_kind] }}</span>
+            </div>
+            {% if bay_type.bays %}
+              <ul class="row-list">
+                {% for bay in bay_type.bays %}
+                  <li class="{{ '' if bay.is_active else 'is-off' }}">
+                    <form method="post" action="{{ url_for('settings.edit_bay', bay_id=bay.id) }}" class="inline-edit">
+                      {{ csrf() }}
+                      <label class="visually-hidden" for="bay-{{ bay.id }}">Name of {{ bay.name }}</label>
+                      <input class="control" id="bay-{{ bay.id }}" name="name" value="{{ bay.name }}" maxlength="60" required>
+                      <button class="button button-small button-quiet" type="submit">Rename</button>
+                    </form>
+                    {% if not bay.is_active %}<span class="pill pill-off">Out of use</span>{% endif %}
+                    <form method="post" action="{{ url_for('settings.edit_bay', bay_id=bay.id) }}">
+                      {{ csrf() }}
+                      <input type="hidden" name="action" value="toggle">
+                      <button class="button button-small button-quiet" type="submit">{{ 'Put back in use' if not bay.is_active else 'Take out of use' }}</button>
+                    </form>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="muted">No {{ bay_type.name|lower }} yet. Services that need one can't be booked.</p>
+            {% endif %}
+          </section>
+        {% endfor %}
+      </div>
+      <div>
+        <section class="card">
+          <h2>Add a Bay</h2>
+          <form method="post" class="stack">
+            {{ csrf() }}
+            <input type="hidden" name="action" value="add_bay">
+            {{ field('name', 'Name', request.form.name if errors.name or errors.bay_type_id else '', errors.name, hint='Like Lift 3 or Moto Stand 4', attrs='required maxlength="60"') }}
+            {{ select('bay_type_id', 'Kind of bay', type_options, request.form.bay_type_id, errors.bay_type_id) }}
+            <div class="form-actions"><button class="button" type="submit">Add bay</button></div>
+          </form>
+        </section>
+        <section class="card">
+          <h2>Add a Kind of Bay</h2>
+          <form method="post" class="stack">
+            {{ csrf() }}
+            <input type="hidden" name="action" value="add_type">
+            {{ field('type_name', 'Name', request.form.type_name if errors.type_name else '', errors.type_name, hint='Like Paint booth or Wash bay', attrs='required maxlength="60"') }}
+            {{ select('vehicle_kind', 'Takes', [('car', 'Cars'), ('moto', 'Motorcycles'), ('any', 'Cars and motorcycles')], request.form.vehicle_kind or 'car', errors.vehicle_kind) }}
+            <div class="form-actions"><button class="button" type="submit">Add kind</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>
+{% endblock %}
