@@ -17,7 +17,9 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - Every test gets a fresh SQLite file and **never goes online**: an autouse fixture makes any network connection fail.
   - Set `TEST_DATABASE_URL` to an **empty** Neon branch to run the same tests on PostgreSQL. Each test drops and remakes the tables.
   - SQLAlchemy warnings fail the tests (`pytest.ini`).
-- Other commands: `set-password <email>`, `purge-demos`.
+- Other commands: `set-password <email>`, `purge-demos`, `tick` (the timer once), `make-vapid-keys`.
+- Deploy: `render.yaml` (service `shiromoto-garage`, `upgrade-db` before gunicorn). `tests/test_deploy.py` checks that every `os.environ.get` setting in `create_app` is listed there and that secrets use `sync: false`. Icons: `docs/make_icons.py`.
+- The full test run takes ~2.5 min on SQLite (each demo builds four weeks of history); far longer on Neon.
 - Screenshots: `docs/take_screenshots.py` (Playwright + Edge, from Try Demo; its top comment has the steps). Playwright isn't in this `.venv`; borrow `expense_tracker`'s.
 
 ## Architecture
@@ -54,6 +56,31 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - `Appointment.version` is SQLAlchemy's `version_id_col`; pages send it back, and a stale one raises `Changed`.
   - `holds`, `appointments`, `shops` and `users` use `sqlite_autoincrement`: SQLite would otherwise reuse a deleted row's id.
   - The race tests (`tests/test_booking.py`) use real threads. Run them on Neon too (`TEST_DATABASE_URL`).
+- **The front desk** (`views/desk.py`, `timeline.py`): statuses are booked → checked in, or no-show, or cancelled (`LIVE_STATUSES` still hold time).
+  - `booking.check_in` works from 2 h before the start until the end.
+  - `mark_no_show` works 15 min after the start and deletes the cells from this quarter hour on. `undo_no_show` re-adds them, and raises `Taken` if a walk-in got them.
+  - Staff holds use `notice=0` (from now on, never the past).
+  - The timeline is a CSS grid with one column per quarter hour. Blocks use the generated `gs-N`/`ge-N` classes (no inline styles under the CSP; rules 1–98 at the end of `style.css`).
+  - Desk macros are imported `with context` (they use `shop`).
+  - Migration 0003 recreates the PostgreSQL exclusion constraints to count only live statuses.
+- **Jobs (`jobs.py`)** start at check-in (`booking.check_in` calls `open_job` in the same transaction) and only move along `MOVES`. Always call `check_version` BEFORE changing a job: reading a relationship autoflushes and bumps the version.
+  - `decide` is a conditional UPDATE (`WHERE status = 'proposed'`), so a line is decided once.
+  - An approved part calls `take_from_stock` (`UPDATE ... WHERE stock >= n`) in the same transaction. If it's short, the job goes to Waiting for parts, and `take_now` retries.
+  - `parts.stock` also has a CHECK (>= 0). `receive` changes stock and writes a `StockMove`.
+  - Photos (`photos.py`, Pillow) are re-encoded to WebP (max 1600 px, plus a thumbnail) without EXIF, and stored in the DB. `/photos/<id>` is for staff or whoever can open the booking.
+  - `next_due` uses `Service.again_months`/`again_km`. `add_months` clamps the day (31 Jan + 1 month = 28/29 Feb).
+- **Notices (`notices.py`)** are queued into `notifications`, with a UNIQUE `dedupe_key` (inserted in a savepoint, so a duplicate is skipped). `send_pending` claims each row (pending → sending) before sending.
+  - Email uses `smtplib.SMTP_SSL` with a Gmail app password (`MAIL_USERNAME`/`MAIL_PASSWORD`). Push uses `pywebpush.webpush` with `VAPID_*` (`flask make-vapid-keys`). Both are looked up at call time, so tests fake them.
+  - Demo shops' notices are always `skipped`.
+  - Links in notices are `notices.booking_link` (itsdangerous, 45 days). `open_booking` accepts `?s=`.
+  - Queue notices after the action commits, with `notices.safely(...)`, so a notice problem never undoes a booking.
+- **The timer (`tick.py`):** `POST /tasks/tick` with `X-Tick-Key` (CSRF-free; 404 without `TICK_KEY`), or `flask tick`. GitHub Actions calls it every 15 min (`.github/workflows/tick.yml`, secrets `TICK_URL` and `TICK_KEY`).
+- **Waitlist (`waitlist.py`):** entries are claimed with `UPDATE ... WHERE status = 'waiting'`, then the offer is a 30-minute `booking.hold(minutes=...)`. `expire` gives unused offers back. `booked_from_offer` runs when that hold is confirmed.
+- **Phone app:** `/sw.js` is served from the root (`views/app_pages.py`). Change `VERSION` in `static/sw.js` when a cached file changes. Icons are drawn by `docs/make_icons.py` (Pillow). `/push/subscribe` takes JSON with the `X-CSRF-Token` header (the token is also in a meta tag).
+- **Insights (`insights.py`, owner only):** plain Python sums over the period's bookings. The tests check each number by hand (`tests/test_insights.py`).
+  - Charts are SVG built from `columns()`/`rows()`: rounded data ends, a square base, 2 px gaps, one series each (no legend; the title names it), a direct label on the biggest bar, and a "Show as a table" for each. Hover tips come from `data-tip` via `setUpChartTips()`.
+  - Colours: `--chart` and `--heat-1..5` (+ `--heat-ink-N`) in all three theme blocks. They were checked with the dataviz validator (bars: lightness band and 3:1; heatmap: one hue, monotone), with text contrast of 4.5:1 or more on every shade. The dark heatmap runs the other way (busier = lighter).
+  - The demo has four weeks of everyday visits (`seed.add_history`, a fixed random seed) so Insights shows real shapes.
 - **Booking pages:** `/b/<ref>` opens with the manage link (`?t=`; only its SHA-256 is stored, and it is remembered in `session["bookings"]`, which survives logging in), for the customer it belongs to, or for staff. Everyone else gets 404. Customers can change a booking until `cancel_cutoff_hours` before it; staff always can. `calendar_file.py` writes the .ics by hand (TZID + VTIMEZONE, escaping, 75-byte folding).
 - **The Book page (`views/book.py`)** keeps the first steps as GETs, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.

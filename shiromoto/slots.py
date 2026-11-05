@@ -286,10 +286,12 @@ def free_slots(picture, need, earliest=0):
 
 # ---------- The booking window: which days, and from what time ----------
 
-def earliest_minute(shop, day, now):
-    """The first minute on `day` that respects the shop's minimum notice.
+def earliest_minute(shop, day, now, notice=None):
+    """The first minute on `day` that respects the minimum notice (the shop's, or
+    `notice` minutes: staff booking a walk-in use 0, "from now on").
     0 means the whole day is fine; None means the whole day is too soon."""
-    soonest = to_local(now + timedelta(minutes=shop.min_notice_minutes), shop.timezone)
+    notice = shop.min_notice_minutes if notice is None else notice
+    soonest = to_local(now + timedelta(minutes=notice), shop.timezone)
     if soonest.date() < day:
         return 0
     if soonest.date() > day:
@@ -314,24 +316,24 @@ class DayChoice:
         return len(self.slots)
 
 
-def day_choice(s, shop, need, day, now, busy=None):
+def day_choice(s, shop, need, day, now, busy=None, notice=None):
     """The free times on one day, with the booking rules applied."""
     first, last = bookable_days(shop, now)
     if day < first:
         return DayChoice(day, [], "This day has passed.")
     if day > last:
         return DayChoice(day, [], f"Bookings open {shop.max_days_ahead} days ahead.")
-    earliest = earliest_minute(shop, day, now)
+    earliest = earliest_minute(shop, day, now, notice)
     if earliest is None:
         return DayChoice(day, [], "It's too soon to book this day.")
     slots, reason = free_slots(load_day(s, shop, day, busy), need, earliest)
     return DayChoice(day, slots, reason)
 
 
-def week_of_choices(s, shop, need, start_day, now, count=7, busy_for=None):
+def week_of_choices(s, shop, need, start_day, now, count=7, busy_for=None, notice=None):
     """`count` days of choices. busy_for(day) gives that day's taken intervals (booking.busy_map)."""
     days = [start_day + timedelta(days=n) for n in range(count)]
-    return [day_choice(s, shop, need, day, now, busy_for(day) if busy_for else None) for day in days]
+    return [day_choice(s, shop, need, day, now, busy_for(day) if busy_for else None, notice) for day in days]
 
 
 def start_moment(shop, day, start):

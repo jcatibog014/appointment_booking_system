@@ -1,5 +1,6 @@
 """The demo: each visitor gets their own sample shop, which can never touch the real
 shop, with an example on every page it can open, for every role in View As."""
+import re
 from datetime import timedelta
 
 import pytest
@@ -7,14 +8,16 @@ from sqlalchemy import func, select
 
 from shiromoto import auth, db
 from shiromoto.dates import utcnow
-from shiromoto.models import Appointment, Bay, Service, Shop, User
+from shiromoto.models import Appointment, Bay, Customer, Job, Part, Service, Shop, User, Vehicle
 
 from .conftest import CSRF, PASSWORD, find, post
 
 # Words that only appear when a list is empty. A demo page must show none of them.
 EMPTY_PAGE_SIGNS = ["No mechanics yet", "No bays yet", "No Services Yet", "Nothing planned", "open as usual",
                     "No holidays, closures or leave", "No skills set", "services yet",
-                    "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle"]
+                    "No services for this vehicle", "No bookings coming up", "Add your car or motorcycle",
+                    "Nothing Found", "No Customers Found", "No bookings yet.", "No parts yet",
+                    "No changes yet.", "No visits yet.", "Nobody Is Waiting", "No visits came in during this period", "No bookings in this period"]
 
 
 def start_demo(app):
@@ -165,8 +168,18 @@ def pages_for(app, role, shop_id):
     pages = ["/", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
     first_booking = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.status == "booked")[0]
     if role != "customer":
-        pages += ["/desk", f"/b/{first_booking.ref}"]
-    else:
+        pages += ["/desk", f"/b/{first_booking.ref}", "/desk/calendar", "/desk/calendar?view=week",
+                  "/desk/calendar?by=mechanic"]
+    if role in ("owner", "advisor"):
+        carlo = find(app, Customer, Customer.shop_id == shop_id, Customer.name == "Carlo Mendoza")[0]
+        pages += ["/desk/bookings", "/desk/customers", f"/desk/customers/{carlo.id}", "/desk/parts",
+                  f"/desk/parts/{find(app, Part, Part.shop_id == shop_id)[0].id}",
+                  f"/desk/vehicles/{find(app, Vehicle, Vehicle.shop_id == shop_id)[0].id}", "/desk/waitlist"]
+    if role == "owner":
+        pages += ["/desk/insights", "/desk/insights?days=7", "/desk/insights?days=90"]
+    if role != "customer":
+        pages += ["/desk/jobs"] + [f"/jobs/{job.id}" for job in find(app, Job, Job.shop_id == shop_id)[:3]]
+    if role == "customer":
         carlos = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.customer.has(user_id=find(
             app, User, User.shop_id == shop_id, User.role == "customer")[0].id))
         pages += ["/garage"] + [f"/b/{item.ref}" for item in carlos]
@@ -199,6 +212,15 @@ def test_the_demo_shows_free_times_with_mechanics_and_bays(app, demo):
     view_as(demo, customer)
     page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
     assert "ready about" in page and "Free bays" not in page
+
+
+def test_the_demo_customer_has_an_estimate_to_approve(app, demo):
+    view_as(demo, person(app, visitor(demo).shop_id, "customer"))
+    garage = demo.get("/garage").get_data(as_text=True)
+    assert "In the Shop" in garage and "Waiting for approval" in garage
+    ref = re.search(r'href="/b/(SM-[A-Z0-9]+)">Toyota Vios', garage).group(1)
+    page = demo.get(f"/b/{ref}").get_data(as_text=True)
+    assert "Resurface the front rotors" in page and "Approve" in page
 
 
 def test_the_demo_shows_leave_a_part_day_closure_and_a_day_off(app, demo):

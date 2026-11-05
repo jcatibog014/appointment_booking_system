@@ -13,9 +13,9 @@ Money is whole centavos (int), so 1,250.50 pesos is 125050. Never floats.
 """
 from datetime import date, datetime, time
 
-from sqlalchemy import DDL, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, String, Table, \
-    Text, Time, UniqueConstraint, event
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import DDL, Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, Integer, LargeBinary, \
+    String, Table, Text, Time, UniqueConstraint, event
+from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
 
 from .db import Base
 
@@ -248,6 +248,9 @@ class Service(Base):
     price_from: Mapped[int] = mapped_column(Integer, default=0)  # centavos
     position: Mapped[int] = mapped_column(Integer, default=0)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    # "Do it again after this many months or km, whichever comes first" (PMS, oil). 0 = no reminder.
+    again_months: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    again_km: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     bay_type: Mapped[BayType] = relationship()
     skill: Mapped[Skill | None] = relationship()
@@ -268,6 +271,7 @@ class Customer(Base):
     phone: Mapped[str] = mapped_column(String(40))
     phone_key: Mapped[str] = mapped_column(String(20), index=True)  # digits only: 09175550142
     email: Mapped[str] = mapped_column(String(254), default="")
+    notes: Mapped[str] = mapped_column(Text, default="", server_default="")  # staff only
     created_at: Mapped[datetime] = now_column()
 
     vehicles: Mapped[list["Vehicle"]] = relationship(back_populates="customer", order_by="Vehicle.id")
@@ -300,8 +304,11 @@ class Vehicle(Base):
 
 # ---------- Bookings (stage 3) ----------
 
-BOOKED, CANCELLED = "booked", "cancelled"
-STATUS_LABELS = {BOOKED: "Booked", CANCELLED: "Cancelled"}
+BOOKED, CHECKED_IN, NO_SHOW, CANCELLED = "booked", "checked_in", "no_show", "cancelled"
+STATUS_LABELS = {BOOKED: "Booked", CHECKED_IN: "Checked in", NO_SHOW: "No-show", CANCELLED: "Cancelled"}
+# A booking in one of these still holds its bay and mechanic. (A no-show gives back
+# the rest of its time; a cancelled booking gives back all of it.)
+LIVE_STATUSES = (BOOKED, CHECKED_IN)
 ONLINE, PHONE, WALK_IN = "online", "phone", "walk_in"
 SOURCE_LABELS = {ONLINE: "Online", PHONE: "Phone", WALK_IN: "Walk-in"}
 
@@ -331,6 +338,9 @@ class Appointment(Base):
     notes: Mapped[str] = mapped_column(Text, default="")
     cancel_reason: Mapped[str] = mapped_column(String(200), default="")
     cancelled_at: Mapped[datetime | None] = mapped_column(DateTime)
+    checked_in_at: Mapped[datetime | None] = mapped_column(DateTime)
+    mileage_in: Mapped[int | None] = mapped_column(Integer)  # km on the odometer at check-in
+    no_show_at: Mapped[datetime | None] = mapped_column(DateTime)
     # The booking form's one-time key: pressing "Book" twice makes one booking.
     idempotency_key: Mapped[str | None] = mapped_column(String(64), unique=True)
     created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
@@ -421,9 +431,251 @@ class BookedSlot(Base):
 NO_OVERLAP_SQL = [
     "CREATE EXTENSION IF NOT EXISTS btree_gist",
     "ALTER TABLE appointments ADD CONSTRAINT appointments_bay_no_overlap EXCLUDE USING gist "
-    "(bay_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+    "(bay_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status IN ('booked', 'checked_in'))",
     "ALTER TABLE appointments ADD CONSTRAINT appointments_mechanic_no_overlap EXCLUDE USING gist "
-    "(mechanic_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status <> 'cancelled')",
+    "(mechanic_id WITH =, tsrange(starts_at, ends_at) WITH &&) WHERE (status IN ('booked', 'checked_in'))",
 ]
 for _statement in NO_OVERLAP_SQL:
     event.listen(Appointment.__table__, "after_create", DDL(_statement).execute_if(dialect="postgresql"))
+
+
+# ---------- Jobs: what happens after check-in (stage 5) ----------
+
+CHECKED, INSPECTING, AWAITING, WORKING, WAITING_PARTS, READY, RELEASED = (
+    "checked_in", "inspecting", "awaiting_approval", "in_progress", "waiting_parts", "ready", "released")
+JOB_LABELS = {CHECKED: "Checked in", INSPECTING: "Inspecting", AWAITING: "Waiting for approval",
+              WORKING: "In progress", WAITING_PARTS: "Waiting for parts", READY: "Ready for pickup",
+              RELEASED: "Released"}
+JOB_ORDER = (CHECKED, INSPECTING, AWAITING, WORKING, WAITING_PARTS, READY, RELEASED)
+
+FUEL_LEVELS = ("Empty", "1/4", "1/2", "3/4", "Full")
+CHECK_OK, CHECK_ATTENTION, CHECK_NOT = "ok", "attention", "not_checked"
+CHECK_LABELS = {CHECK_OK: "OK", CHECK_ATTENTION: "Needs attention", CHECK_NOT: "Not checked"}
+# Looked at and written down when a vehicle comes in, with the customer there.
+CHECK_IN_ITEMS = ("Body: scratches and dents", "Windows and mirrors", "Lights", "Tires and wheels",
+                  "Warning lights on the dashboard", "Items left in the vehicle")
+
+LABOR, PART = "labor", "part"
+PROPOSED, APPROVED, DECLINED = "proposed", "approved", "declined"
+LINE_LABELS = {PROPOSED: "Waiting for approval", APPROVED: "Approved", DECLINED: "Declined"}
+
+
+class Job(Base):
+    """The work on one checked-in visit, from check-in to release. `version` stops two
+    people moving the same job at once (the second save fails)."""
+    __tablename__ = "jobs"
+    __table_args__ = (UniqueConstraint("appointment_id"), NEVER_REUSE_IDS)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"))
+    status: Mapped[str] = mapped_column(String(24), default=CHECKED)
+    fuel_level: Mapped[str] = mapped_column(String(8), default="")
+    promised_at: Mapped[datetime | None] = mapped_column(DateTime)  # when we told the customer it'd be ready
+    released_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = now_column()
+    updated_at: Mapped[datetime] = now_column()
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+    __mapper_args__ = {"version_id_col": version}
+
+    appointment: Mapped["Appointment"] = relationship(backref=backref("job", uselist=False))
+    events: Mapped[list["JobEvent"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                    order_by="JobEvent.at")
+    checklist: Mapped[list["ChecklistItem"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                            order_by="ChecklistItem.position")
+    photos: Mapped[list["Photo"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                 order_by="Photo.id")
+    lines: Mapped[list["EstimateLine"]] = relationship(cascade="all, delete-orphan", passive_deletes=True,
+                                                       order_by="EstimateLine.id")
+
+    def total(self, status=APPROVED):
+        return sum(line.amount for line in self.lines if line.status == status)
+
+
+class JobEvent(Base):
+    """One line on a job's timeline: a status change, a note, a decision. `public` ones
+    are shown to the customer on their booking page."""
+    __tablename__ = "job_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    at: Mapped[datetime] = mapped_column(DateTime)
+    status: Mapped[str | None] = mapped_column(String(24))
+    text: Mapped[str] = mapped_column(String(400), default="")
+    public: Mapped[bool] = mapped_column(Boolean, default=True)
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    by: Mapped[User | None] = relationship()
+
+
+class ChecklistItem(Base):
+    __tablename__ = "checklist_items"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    label: Mapped[str] = mapped_column(String(80))
+    state: Mapped[str] = mapped_column(String(16), default=CHECK_NOT)
+    note: Mapped[str] = mapped_column(String(200), default="")
+
+
+class Photo(Base):
+    """A check-in photo, kept in the database (Render's disk forgets files). Always WebP,
+    at most 1600 px, with the camera's location and other details removed."""
+    __tablename__ = "photos"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    caption: Mapped[str] = mapped_column(String(120), default="")
+    data: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    thumb: Mapped[bytes] = mapped_column(LargeBinary, deferred=True)
+    width: Mapped[int] = mapped_column(Integer)
+    height: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = now_column()
+
+
+class Part(Base):
+    """A part the shop keeps. `stock` only changes through parts.py, which never lets it go below zero."""
+    __tablename__ = "parts"
+    __table_args__ = (UniqueConstraint("shop_id", "name"), CheckConstraint("stock >= 0", name="stock"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(80))
+    sku: Mapped[str] = mapped_column(String(40), default="")
+    stock: Mapped[int] = mapped_column(Integer, default=0)
+    low_level: Mapped[int] = mapped_column(Integer, default=2)  # at or below this, it's on the low-stock list
+    price: Mapped[int] = mapped_column(Integer, default=0)  # centavos, what the customer pays
+    cost: Mapped[int] = mapped_column(Integer, default=0)  # centavos, what the shop paid
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    @property
+    def is_low(self):
+        return self.stock <= self.low_level
+
+
+class StockMove(Base):
+    """Every change to a part's stock, with why: received, used on a job, or counted."""
+    __tablename__ = "stock_moves"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"))
+    change: Mapped[int] = mapped_column(Integer)  # +5 received, -1 used
+    reason: Mapped[str] = mapped_column(String(120))
+    at: Mapped[datetime] = mapped_column(DateTime)
+    by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+    part: Mapped[Part] = relationship()
+    by: Mapped[User | None] = relationship()
+
+
+class EstimateLine(Base):
+    """One thing on a job's estimate: labor or a part. The customer approves or declines each one."""
+    __tablename__ = "estimate_lines"
+    __table_args__ = (CheckConstraint("quantity > 0", name="quantity"), CheckConstraint("unit_price >= 0",
+                                                                                         name="unit_price"))
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(8))
+    description: Mapped[str] = mapped_column(String(160))
+    reason: Mapped[str] = mapped_column(String(300), default="")  # why it's needed, in plain words
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    unit_price: Mapped[int] = mapped_column(Integer)  # centavos
+    part_id: Mapped[int | None] = mapped_column(ForeignKey("parts.id", ondelete="SET NULL"))
+    status: Mapped[str] = mapped_column(String(12), default=PROPOSED)
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime)
+    decided_by: Mapped[str] = mapped_column(String(80), default="")  # "the customer" or a staff name
+    stock_taken: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = now_column()
+
+    part: Mapped[Part | None] = relationship()
+
+    @property
+    def amount(self):
+        return self.quantity * self.unit_price
+
+
+# ---------- Notices, push and the waitlist (stage 6) ----------
+
+EMAIL, PUSH = "email", "push"
+PENDING, SENT, FAILED, SKIPPED = "pending", "sent", "failed", "skipped"
+
+
+class Notification(Base):
+    """The outbox: one message to send, by email or push.
+
+    `dedupe_key` is UNIQUE, so a notice can't be queued twice: "the day-before
+    reminder for booking 7" is queued once even if the timer runs twice at the
+    same moment (the second INSERT fails and is ignored). The timer sends
+    pending ones and records what happened."""
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("dedupe_key"), NEVER_REUSE_IDS)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(32))  # "confirmed", "day_before", "ready"...
+    channel: Mapped[str] = mapped_column(String(8))
+    to: Mapped[str] = mapped_column(String(254), default="")  # an email address (push finds its own subscriptions)
+    subject: Mapped[str] = mapped_column(String(160))
+    body: Mapped[str] = mapped_column(Text)
+    link: Mapped[str] = mapped_column(String(400), default="")
+    dedupe_key: Mapped[str] = mapped_column(String(120))
+    status: Mapped[str] = mapped_column(String(12), default=PENDING, index=True)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str] = mapped_column(String(300), default="")
+    send_after: Mapped[datetime] = mapped_column(DateTime)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    created_at: Mapped[datetime] = now_column()
+
+
+class PushSubscription(Base):
+    """A phone or browser that asked for push notices: for one booking (a guest) or
+    for a person with a login. The endpoint is the browser's own address for it."""
+    __tablename__ = "push_subscriptions"
+    __table_args__ = (UniqueConstraint("endpoint"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    appointment_id: Mapped[int | None] = mapped_column(ForeignKey("appointments.id", ondelete="CASCADE"), index=True)
+    endpoint: Mapped[str] = mapped_column(String(600))
+    p256dh: Mapped[str] = mapped_column(String(200))
+    auth: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = now_column()
+
+
+WAITING, OFFERED, TAKEN_UP, EXPIRED, LEFT = "waiting", "offered", "booked", "expired", "left"
+WAITLIST_LABELS = {WAITING: "Waiting", OFFERED: "Offered a time", TAKEN_UP: "Booked", EXPIRED: "Ended",
+                   LEFT: "Left the list"}
+
+
+class WaitlistEntry(Base):
+    """Someone who wants a time that's full. When a time frees up between first_day and
+    last_day, the first person waiting is offered it: the time is held for them for
+    30 minutes and they get a link. Claiming an entry is a conditional UPDATE
+    (WHERE status = 'waiting'), so one entry is never offered two times at once."""
+    __tablename__ = "waitlist"
+    __table_args__ = (NEVER_REUSE_IDS,)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    shop_id: Mapped[int] = mapped_column(ForeignKey("shops.id", ondelete="CASCADE"), index=True)
+    token: Mapped[str] = mapped_column(String(48), unique=True)
+    name: Mapped[str] = mapped_column(String(80))
+    phone: Mapped[str] = mapped_column(String(40))
+    email: Mapped[str] = mapped_column(String(254), default="")
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    vehicle_kind: Mapped[str] = mapped_column(String(8))
+    service_ids: Mapped[str] = mapped_column(String(200))
+    first_day: Mapped[date] = mapped_column(Date)
+    last_day: Mapped[date] = mapped_column(Date)
+    status: Mapped[str] = mapped_column(String(12), default=WAITING, index=True)
+    hold_token: Mapped[str] = mapped_column(String(48), default="")
+    offered_at: Mapped[datetime | None] = mapped_column(DateTime)
+    offer_expires_at: Mapped[datetime | None] = mapped_column(DateTime)
+    offers: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = now_column()

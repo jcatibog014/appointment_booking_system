@@ -49,6 +49,18 @@ def create_app(test_config=None):
         SESSION_COOKIE_SECURE=on_render,
         PERMANENT_SESSION_LIFETIME=timedelta(days=30),
         MAX_CONTENT_LENGTH=6 * 1024 * 1024,  # check-in photos (stage 5), plus the form around them
+        # The site's address, for links in notices sent by the timer from the command line.
+        BASE_URL=os.environ.get("BASE_URL", ""),
+        # Email through Gmail with an app password. Without them, notices stay in the app.
+        MAIL_USERNAME=os.environ.get("MAIL_USERNAME", ""),
+        MAIL_PASSWORD=os.environ.get("MAIL_PASSWORD", ""),
+        MAIL_FROM=os.environ.get("MAIL_FROM", ""),
+        # Push notifications to phones (flask --app shiromoto make-vapid-keys makes them).
+        VAPID_PUBLIC_KEY=os.environ.get("VAPID_PUBLIC_KEY", ""),
+        VAPID_PRIVATE_KEY=os.environ.get("VAPID_PRIVATE_KEY", ""),
+        VAPID_SUBJECT=os.environ.get("VAPID_SUBJECT", ""),
+        # The secret the GitHub timer sends to /tasks/tick. Empty: the endpoint is off.
+        TICK_KEY=os.environ.get("TICK_KEY", ""),
     )
     if test_config:
         app.config.update(test_config)
@@ -62,25 +74,31 @@ def create_app(test_config=None):
         # Without it we'd use a SQLite file, and Render forgets files on every restart.
         raise RuntimeError("Set the DATABASE_URL environment variable on Render (Neon's connection string).")
 
-    from . import auth, db, formatting, shops
-    from .models import CLOSURE_LABELS, ROLE_LABELS, SOURCE_LABELS, STATUS_LABELS, VEHICLE_LABELS, WEEKDAYS
-    from .views import book, bookings, desk, garage, public, settings
+    from . import auth, booking, db, formatting, shops, tick
+    from .models import (CHECK_LABELS, CLOSURE_LABELS, JOB_LABELS, LINE_LABELS, ROLE_LABELS, SOURCE_LABELS,
+                         STATUS_LABELS, VEHICLE_LABELS, WAITLIST_LABELS, WEEKDAYS)
+    from .views import app_pages, book, bookings, desk, garage, jobs, public, settings, waiting
 
     db.init_app(app)
     auth.init_app(app)
     formatting.init_app(app)
+    tick.init_app(app)
     # auth comes first: its before_request (load_user) must run before the others'.
-    for blueprint in (auth.bp, public.bp, book.bp, bookings.bp, garage.bp, desk.bp, settings.bp):
+    for blueprint in (auth.bp, public.bp, book.bp, bookings.bp, garage.bp, desk.bp, jobs.bp, waiting.bp,
+                      app_pages.bp, tick.bp, settings.bp):
         app.register_blueprint(blueprint)
 
     app.jinja_env.globals.update(APP_NAME="ShiroMoto Garage", ROLE_LABELS=ROLE_LABELS,
                                  VEHICLE_LABELS=VEHICLE_LABELS, CLOSURE_LABELS=CLOSURE_LABELS, WEEKDAYS=WEEKDAYS,
-                                 STATUS_LABELS=STATUS_LABELS, SOURCE_LABELS=SOURCE_LABELS)
+                                 STATUS_LABELS=STATUS_LABELS, SOURCE_LABELS=SOURCE_LABELS,
+                                 CHECK_IN_EARLY=booking.CHECK_IN_EARLY, NO_SHOW_GRACE=booking.NO_SHOW_GRACE,
+                                 JOB_LABELS=JOB_LABELS, LINE_LABELS=LINE_LABELS, CHECK_LABELS=CHECK_LABELS,
+                                 WAITLIST_LABELS=WAITLIST_LABELS)
 
     @app.context_processor
     def shop_and_demo():
         """Every page knows the shop, and the demo bar knows who can be "viewed as"."""
-        values = {"shop": shops.current()}
+        values = {"shop": shops.current(), "vapid_key": app.config.get("VAPID_PUBLIC_KEY", "")}
         if g.get("visitor") is not None:
             values["demo_people"] = shops.people(db.session(), g.visitor.shop)
         return values

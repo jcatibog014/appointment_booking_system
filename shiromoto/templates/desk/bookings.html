@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% from "_desk.html" import status_pill %}
+{% block title %}Bookings - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Bookings</h1>
+    <a class="button" href="{{ url_for('book.index') }}">New booking</a>
+    <p class="page-sub">{{ total }} booking{{ 's' if total != 1 }}{% if kept %} found{% endif %}.</p>
+  </div>
+  <form method="get" class="card filter-bar">
+    <label class="field grow"><span class="field-label">Search</span>
+      <input type="search" name="q" value="{{ q }}" placeholder="Booking number, name, phone or plate"></label>
+    <label class="field"><span class="field-label">Status</span>
+      <select name="status"><option value="">Any</option>{% for key, label in STATUS_LABELS.items() %}<option value="{{ key }}"{% if key == status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label class="field"><span class="field-label">Booked by</span>
+      <select name="source"><option value="">Any</option>{% for key, label in SOURCE_LABELS.items() %}<option value="{{ key }}"{% if key == source %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label class="field"><span class="field-label">From</span><input type="date" name="from" value="{{ first_day or '' }}"></label>
+    <label class="field"><span class="field-label">To</span><input type="date" name="to" value="{{ last_day or '' }}"></label>
+    <div class="filter-actions">
+      <button class="button" type="submit">Search</button>
+      {% if kept %}<a class="button button-quiet" href="{{ url_for('desk.bookings') }}">Clear</a>{% endif %}
+    </div>
+  </form>
+  {% if rows %}
+    <section class="card table-card">
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">When</th><th scope="col">Number</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Booked by</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            {% for item in rows %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}" class="{{ 'is-off' if item.status in ('cancelled', 'no_show') else '' }}">
+                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a></td>
+                <td class="mono">{{ item.ref }}</td>
+                <td>{{ item.customer.name }}</td>
+                <td>{{ item.vehicle.label }}</td>
+                <td>{{ item.lines|map(attribute='name')|join(' + ') }}</td>
+                <td>{{ SOURCE_LABELS[item.source] }}</td>
+                <td>{{ status_pill(item.status) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% if pages > 1 %}
+      <nav class="pager" aria-label="Pages">
+        {% if page > 1 %}<a class="button button-small button-quiet" href="{{ url_for('desk.bookings', page=page - 1, **kept) }}">&larr; Newer</a>{% endif %}
+        <span class="muted small">Page {{ page }} of {{ pages }}</span>
+        {% if page < pages %}<a class="button button-small button-quiet" href="{{ url_for('desk.bookings', page=page + 1, **kept) }}">Older &rarr;</a>{% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <div class="empty-state"><h2>Nothing Found</h2><p>No booking matches. Try a shorter search, or clear the filters.</p></div>
+  {% endif %}
+{% endblock %}

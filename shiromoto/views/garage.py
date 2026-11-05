@@ -9,10 +9,10 @@ from flask import Blueprint, flash, g, redirect, render_template, request, url_f
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .. import auth, booking, db, forms, shops
+from .. import auth, booking, db, forms, jobs, shops
 from ..auth import roles_required
 from ..dates import utcnow
-from ..models import BOOKED, CUSTOMER, VEHICLE_KINDS, Appointment, Vehicle
+from ..models import BOOKED, CUSTOMER, RELEASED, VEHICLE_KINDS, Appointment, Service, Vehicle
 
 bp = Blueprint("garage", __name__)
 
@@ -63,10 +63,14 @@ def index():
     now = utcnow()
     bookings = s.scalars(select(Appointment).where(Appointment.customer_id == customer.id)
                          .order_by(Appointment.starts_at.desc())).all()
+    in_shop = [b for b in bookings if b.job is not None and b.job.status != RELEASED]
     upcoming = sorted((b for b in bookings if b.status == BOOKED and b.ends_at > now), key=lambda b: b.starts_at)
-    past = [b for b in bookings if b not in upcoming]
-    return render_template("garage.html", customer=customer, upcoming=upcoming, past=past[:12], errors={},
-                           public_page=True)
+    past = [b for b in bookings if b not in upcoming and b not in in_shop]
+    lookup = {sv.id: sv for sv in s.scalars(select(Service).where(Service.shop_id == shop.id))}
+    due = {v.id: jobs.next_due([b for b in bookings if b.vehicle_id == v.id and b.checked_in_at], lookup)
+           for v in customer.vehicles}
+    return render_template("garage.html", customer=customer, upcoming=upcoming, past=past[:12], in_shop=in_shop,
+                           due=due, errors={}, public_page=True)
 
 
 def read_vehicle(form):

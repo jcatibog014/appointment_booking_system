@@ -94,7 +94,7 @@
         <h2>{{ picked.day|long_day }}</h2>
         {% if not picked.count %}
           <p class="no-times">{{ picked.reason }}</p>
-          <p class="muted small">Try another day above.</p>
+          <p class="muted small">Try another day above{% if not staff_view and not moving %}, or <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat()) }}">join the waitlist</a>: we'll keep the next free time for you{% endif %}.</p>
         {% else %}
           {# One form for every time on the day: each time is its own button (name="start").
              Moving goes to a confirm page (GET); a new booking holds the time (POST). #}
@@ -138,7 +138,8 @@
             {% endif %}
           {% endfor %}
           {% if not staff_view and not moving %}
-            <p class="call-note">Pick a time and it's kept for you for {{ shop.hold_minutes }} minutes while you fill in your details.</p>
+            <p class="call-note">Pick a time and it's kept for you for {{ shop.hold_minutes }} minutes while you fill in your details.
+              No time that suits you? <a href="{{ url_for('waiting.join', vehicle=vehicle, service=chosen|map(attribute='id')|list, day=picked.day.isoformat()) }}">Join the waitlist</a>.</p>
           {% endif %}
         {% endif %}
       </section>

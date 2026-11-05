@@ -33,7 +33,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from . import slots
 from .dates import at, to_local
-from .models import BOOKED, CANCELLED, ONLINE, Appointment, AppointmentService, Bay, BookedSlot, Customer, Hold, \
+from .models import BOOKED, CANCELLED, CHECKED_IN, NO_SHOW, ONLINE, Appointment, AppointmentService, Bay, BookedSlot, Customer, Hold, \
     Service, User, Vehicle
 
 CELL = timedelta(minutes=slots.STEP)
@@ -162,12 +162,12 @@ def merge(starts):
     return intervals
 
 
-def find_slot(s, shop, need, day, start, now, ignore_appointment=None, rules=True):
+def find_slot(s, shop, need, day, start, now, ignore_appointment=None, rules=True, notice=None):
     """The free slot at `start` on `day`, or None. rules=False skips the booking
-    window and notice (for sample data and, later, the front desk's walk-ins)."""
+    window and notice (for sample data). notice=0 is staff booking "from now on"."""
     busy = busy_map(s, shop, day, now, ignore_appointment)
     if rules:
-        found = slots.day_choice(s, shop, need, day, now, busy).slots
+        found = slots.day_choice(s, shop, need, day, now, busy, notice).slots
     else:
         found, _ = slots.free_slots(slots.load_day(s, shop, day, busy), need)
     return next((slot for slot in found if slot.start == start), None)
@@ -201,8 +201,10 @@ def purge_holds(s, shop, now):
               .execution_options(synchronize_session=False))
 
 
-def hold(s, shop, services, vehicle_kind, day, start, now, by=None):
-    """Keep `start` on `day` for shop.hold_minutes. Returns the Hold, or raises Taken."""
+def hold(s, shop, services, vehicle_kind, day, start, now, by=None, minutes=None):
+    """Keep `start` on `day` for shop.hold_minutes. Returns the Hold, or raises Taken.
+    Staff (`by` is staff) may book from right now: a walk-in needs no notice."""
+    notice = 0 if by is not None and by.is_staff else None
     need, problem = slots.need_for(services, vehicle_kind)
     if problem:
         raise BookingError(problem)
@@ -212,7 +214,7 @@ def hold(s, shop, services, vehicle_kind, day, start, now, by=None):
             if s.scalar(select(func.count()).select_from(Hold).where(Hold.shop_id == shop.id)) >= MAX_HOLDS:
                 raise BookingError("Booking is very busy right now. Please try again in a few minutes.")
             lock_resources(s, shop, need)
-            slot = find_slot(s, shop, need, day, start, now)
+            slot = find_slot(s, shop, need, day, start, now, notice=notice)
             if slot is None:
                 raise Taken(TAKEN)
             option, bay = pick(slot)
@@ -221,7 +223,7 @@ def hold(s, shop, services, vehicle_kind, day, start, now, by=None):
                         mechanic_id=option.mechanic.id, starts_at=slots.start_moment(shop, day, start),
                         ends_at=slots.start_moment(shop, day, option.end), work_minutes=need.work_minutes,
                         created_by_id=by.id if by else None, created_at=now,
-                        expires_at=now + timedelta(minutes=shop.hold_minutes))
+                        expires_at=now + timedelta(minutes=minutes or shop.hold_minutes))
             s.add(held)
             s.flush()
             add_cells(s, shop, held.starts_at, held.ends_at, bay.id, option.mechanic.id, hold=held)
@@ -395,7 +397,8 @@ def move(s, shop, appointment, day, start, now, version=None, by_staff=False):
     for _ in range(MAX_ATTEMPTS):
         try:
             lock_resources(s, shop, need)
-            slot = find_slot(s, shop, need, day, start, now, ignore_appointment=appointment.id)
+            slot = find_slot(s, shop, need, day, start, now, ignore_appointment=appointment.id,
+                             notice=0 if by_staff else None)
             if slot is None:
                 raise Taken(TAKEN)
             option, bay = pick(slot)
@@ -432,4 +435,88 @@ def cancel(s, shop, appointment, reason, now, version=None, by_staff=False):
     except StaleDataError as error:
         s.rollback()
         raise Changed(CHANGED) from error
+    return appointment
+
+
+# ---------- At the front desk ----------
+
+CHECK_IN_EARLY = timedelta(hours=2)  # a customer may arrive this early
+NO_SHOW_GRACE = timedelta(minutes=15)  # wait this long before calling it a no-show
+
+
+def quarter_floor(moment):
+    """The quarter hour on or before moment: 9:20 -> 9:15."""
+    return moment.replace(minute=moment.minute - moment.minute % slots.STEP, second=0, microsecond=0)
+
+
+def check_in(s, shop, appointment, now, version=None, mileage=None, by=None, fuel=""):
+    """The vehicle is here. Allowed from 2 hours before the start until the booking ends.
+    It opens the job (jobs.py) in the same transaction."""
+    from .jobs import open_job
+    if appointment.status != BOOKED:
+        raise BookingError("Only a booked visit can be checked in.")
+    if version is not None and version != appointment.version:
+        raise Changed(CHANGED)
+    if now < appointment.starts_at - CHECK_IN_EARLY:
+        raise BookingError("It's too early to check in: this booking is more than 2 hours away.")
+    if now >= appointment.ends_at:
+        raise BookingError("This booking's time is over. Book a new time instead.")
+    try:
+        appointment.status, appointment.checked_in_at, appointment.updated_at = CHECKED_IN, now, now
+        appointment.mileage_in = mileage
+        s.flush()
+        open_job(s, appointment, now, by, fuel)
+        s.commit()
+    except StaleDataError as error:
+        s.rollback()
+        raise Changed(CHANGED) from error
+    return appointment
+
+
+def mark_no_show(s, shop, appointment, now, version=None):
+    """Nobody came. The rest of the booking's time is freed at once (from this quarter
+    hour on), so a walk-in can have the bay; the past part stays as it was."""
+    if appointment.status != BOOKED:
+        raise BookingError("Only a booked visit can be a no-show.")
+    if version is not None and version != appointment.version:
+        raise Changed(CHANGED)
+    if now < appointment.starts_at + NO_SHOW_GRACE:
+        raise BookingError("Wait until 15 minutes after the start before marking a no-show.")
+    try:
+        s.execute(delete(BookedSlot).where(BookedSlot.appointment_id == appointment.id,
+                                           BookedSlot.slot_start >= quarter_floor(now)))
+        appointment.status, appointment.no_show_at, appointment.updated_at = NO_SHOW, now, now
+        s.commit()
+    except StaleDataError as error:
+        s.rollback()
+        raise Changed(CHANGED) from error
+    return appointment
+
+
+def undo_no_show(s, shop, appointment, now, version=None):
+    """They came after all. Take back the cells that are still to come. If someone
+    else was booked into that time meanwhile, the UNIQUE rule refuses, and nothing changes."""
+    if appointment.status != NO_SHOW:
+        raise BookingError("This booking isn't a no-show.")
+    if version is not None and version != appointment.version:
+        raise Changed(CHANGED)
+    if now >= appointment.ends_at:
+        raise BookingError("This booking's time is over. Book a new time instead.")
+    try:
+        have = set(s.scalars(select(BookedSlot.slot_start).where(BookedSlot.appointment_id == appointment.id,
+                                                                  BookedSlot.resource_kind == "bay")))
+        for moment in cells(max(appointment.starts_at, quarter_floor(now)), appointment.ends_at):
+            if moment not in have:
+                for kind, resource_id in (("bay", appointment.bay_id), ("mechanic", appointment.mechanic_id)):
+                    s.add(BookedSlot(shop_id=shop.id, resource_kind=kind, resource_id=resource_id, slot_start=moment,
+                                     appointment_id=appointment.id))
+        appointment.status, appointment.no_show_at, appointment.updated_at = BOOKED, None, now
+        s.commit()
+    except StaleDataError as error:
+        s.rollback()
+        raise Changed(CHANGED) from error
+    except (IntegrityError, OperationalError) as error:
+        s.rollback()
+        raise Taken("Someone else was booked into that time after the no-show, so it can't be undone. "
+                    "Book a new time instead.") from error
     return appointment

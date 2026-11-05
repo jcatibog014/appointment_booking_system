@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}Join the Waitlist - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="narrow">
+    <div class="page-head">
+      <h1>Join the Waitlist</h1>
+      <p class="page-sub">No time that suits you? When a time opens up on one of your days, we keep it for you for 30 minutes and send you a link. The first one waiting gets it first.</p>
+    </div>
+    <section class="card visit-summary">
+      <div class="visit-lines">
+        <span class="vehicle-tag vehicle-{{ vehicle }}">{{ VEHICLE_LABELS[vehicle] }}</span>
+        <ul class="visit-services">{% for service in services %}<li>{{ service.name }}</li>{% endfor %}</ul>
+      </div>
+    </section>
+    <form method="post" class="card stack">
+      {{ csrf() }}
+      <input type="hidden" name="vehicle" value="{{ vehicle }}">
+      {% for service in services %}<input type="hidden" name="service" value="{{ service.id }}">{% endfor %}
+      <div class="form-grid">
+        {{ field('first_day', 'From', values.first_day, errors.first_day, type='date', attrs='required min="' ~ first ~ '" max="' ~ last ~ '"') }}
+        {{ field('last_day', 'Until', values.last_day, errors.last_day, type='date', attrs='required min="' ~ first ~ '" max="' ~ last ~ '"') }}
+        {{ field('name', 'Name', values.name, errors.name, attrs='autocomplete="name" required maxlength="80"') }}
+        {{ field('phone', 'Mobile number', values.phone, errors.phone, type='tel', attrs='autocomplete="tel" required') }}
+        {{ field('email', 'Email', values.email, errors.email, type='email', hint='For the link when a time opens up', attrs='autocomplete="email"') }}
+      </div>
+      <div class="form-actions"><button class="button" type="submit">Join the waitlist</button></div>
+    </form>
+  </div>
+{% endblock %}

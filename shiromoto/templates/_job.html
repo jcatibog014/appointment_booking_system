@@ -1,0 +1,98 @@
+{# A job's pieces, shared by the staff job page and the customer's booking page. #}
+{% from "_macros.html" import csrf %}
+
+{% macro job_pill(status) %}<span class="pill job-{{ status }}">{{ JOB_LABELS[status] }}</span>{% endmacro %}
+
+{# The road from check-in to release, with the current step lit. #}
+{% macro progress(job) %}
+  {% set road = ['checked_in', 'inspecting', 'in_progress', 'ready', 'released'] %}
+  {% set here = {'awaiting_approval': 'inspecting', 'waiting_parts': 'in_progress'}.get(job.status, job.status) %}
+  <ol class="job-road" aria-label="Progress">
+    {% for step in road %}
+      {% set done = road.index(step) < road.index(here) %}
+      <li class="{{ 'is-done' if done else ('is-here' if step == here else '') }}"{% if step == here %} aria-current="step"{% endif %}>{{ JOB_LABELS[step] }}</li>
+    {% endfor %}
+  </ol>
+  {% if job.status in ('awaiting_approval', 'waiting_parts') %}<p class="road-note">{{ JOB_LABELS[job.status] }}</p>{% endif %}
+{% endmacro %}
+
+{# The estimate. `decide_url(line)` gives the approve/decline form's address, or none. #}
+{% macro estimate(job, decide_url=None, staff=False) %}
+  {% if job.lines %}
+    <div class="table-scroll">
+      <table class="table estimate">
+        <thead><tr><th scope="col">Work or part</th><th scope="col" class="num">Qty</th><th scope="col" class="num">Each</th><th scope="col" class="num">Amount</th><th scope="col">Decision</th></tr></thead>
+        <tbody>
+          {% for line in job.lines %}
+            <tr class="line-{{ line.status }}">
+              <td><strong>{{ line.description }}</strong> <span class="muted small">{{ 'Labor' if line.kind == 'labor' else 'Part' }}</span>
+                {% if line.reason %}<br><span class="small">{{ line.reason }}</span>{% endif %}
+                {% if staff and line.status == 'approved' and line.part_id and not line.stock_taken %}<br><span class="pill pill-no_show">To order: not enough in stock</span>{% endif %}</td>
+              <td class="num">{{ line.quantity }}</td>
+              <td class="num">{{ line.unit_price|peso }}</td>
+              <td class="num">{{ line.amount|peso }}</td>
+              <td>
+                {% if line.status == 'proposed' and decide_url %}
+                  <form method="post" action="{{ decide_url(line) }}" class="decide-form">
+                    {{ csrf() }}
+                    <button class="button button-small" type="submit" name="decision" value="approve">Approve<span class="visually-hidden"> {{ line.description }}</span></button>
+                    <button class="button button-small button-quiet" type="submit" name="decision" value="decline">Decline<span class="visually-hidden"> {{ line.description }}</span></button>
+                  </form>
+                {% else %}
+                  <span class="pill line-pill-{{ line.status }}">{{ LINE_LABELS[line.status] }}</span>
+                  {% if line.decided_by %}<span class="muted small">by {{ line.decided_by }}</span>{% endif %}
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr><th scope="row" colspan="3">Approved</th><td class="num"><strong>{{ job.total('approved')|peso }}</strong></td><td></td></tr>
+          {% if job.total('proposed') %}<tr><th scope="row" colspan="3">Waiting for approval</th><td class="num">{{ job.total('proposed')|peso }}</td><td></td></tr>{% endif %}
+        </tfoot>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Nothing extra so far. If we find anything, it shows here for you to approve first.</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro events(job, public_only=True) %}
+  <ol class="job-events">
+    {% for event in job.events|reverse if event.public or not public_only %}
+      <li class="{{ '' if event.public else 'is-private' }}">
+        <span class="event-when">{{ event.at|local_moment(shop.timezone) }}</span>
+        <span>{{ event.text }}{% if not public_only and not event.public %} <span class="pill">Staff only</span>{% endif %}{% if not public_only and event.by %} <span class="muted small">· {{ event.by.name }}</span>{% endif %}</span>
+      </li>
+    {% endfor %}
+  </ol>
+{% endmacro %}
+
+{% macro photo_grid(job, can_delete=False) %}
+  {% if job.photos %}
+    <ul class="photo-grid">
+      {% for picture in job.photos %}
+        <li>
+          <a href="{{ url_for('jobs.photo', photo_id=picture.id) }}"><img src="{{ url_for('jobs.photo', photo_id=picture.id, size='thumb') }}" alt="{{ picture.caption or 'Check-in photo' }}" width="180" height="{{ (180 * picture.height / picture.width)|int }}" loading="lazy"></a>
+          {% if picture.caption %}<span class="small">{{ picture.caption }}</span>{% endif %}
+          {% if can_delete %}
+            <form method="post" action="{{ url_for('jobs.delete_photo', job_id=job.id, photo_id=picture.id) }}" data-confirm="Remove this photo?">
+              {{ csrf() }}<button class="link-button small" type="submit">Remove</button>
+            </form>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <p class="muted small">No photos.</p>
+  {% endif %}
+{% endmacro %}
+
+{% macro checklist_view(job) %}
+  <dl class="detail-list compact">
+    {% if job.fuel_level %}<div><dt>Fuel</dt><dd>{{ job.fuel_level }}</dd></div>{% endif %}
+    {% for item in job.checklist if item.state != 'not_checked' or item.note %}
+      <div><dt>{{ item.label }}</dt><dd><span class="pill check-{{ item.state }}">{{ CHECK_LABELS[item.state] }}</span>{% if item.note %} {{ item.note }}{% endif %}</dd></div>
+    {% endfor %}
+  </dl>
+{% endmacro %}

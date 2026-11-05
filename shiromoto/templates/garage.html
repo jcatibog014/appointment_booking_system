@@ -18,6 +18,22 @@
   </div>
   <div class="split">
     <div>
+      {% if in_shop %}
+        <section class="card in-shop">
+          <h2>In the Shop</h2>
+          <ul class="row-list">
+            {% for item in in_shop %}
+              <li>
+                <div class="row-main">
+                  <a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.vehicle.label }}</a>
+                  <span class="muted small">{{ item.lines|map(attribute='name')|join(' + ') }} · {{ item.ref }}</span>
+                </div>
+                <span class="pill job-{{ item.job.status }}">{{ JOB_LABELS[item.job.status] }}</span>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endif %}
       <section class="card">
         <h2>Coming Up</h2>
         {% if upcoming %}
@@ -41,7 +57,11 @@
             {% for vehicle in customer.vehicles %}
               <li>
                 <span class="vehicle-tag vehicle-{{ vehicle.kind }}">{{ 'Car' if vehicle.kind == 'car' else 'Moto' }}</span>
-                <div class="row-main"><strong>{{ vehicle.plate }}</strong><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span></div>
+                <div class="row-main"><strong>{{ vehicle.plate }}</strong><span class="muted small">{{ [vehicle.make, vehicle.model, vehicle.year]|select|join(' ') or 'Make and model not set' }}</span>
+                  {% for name, last_day, last_km, due_day, due_km in due[vehicle.id] %}
+                    <span class="small due-line">{{ name }} due {% if due_day %}by {{ due_day|day }} {{ due_day.year }}{% endif %}{% if due_day and due_km %} or {% endif %}{% if due_km %}{{ '{:,}'.format(due_km) }} km{% endif %}</span>
+                  {% endfor %}
+                </div>
                 <a class="button button-small button-quiet" href="{{ url_for('book.index', vehicle=vehicle.kind) }}">Book</a>
               </li>
             {% endfor %}

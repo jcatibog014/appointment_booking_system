@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% from "_macros.html" import back %}
+{% from "_desk.html" import status_pill %}
+{% block title %}{{ item.plate }} - {{ shop.name }}{% endblock %}
+{% block content %}
+  {% if g.user.role in ('owner', 'advisor') %}{{ back(url_for('desk.customer', customer_id=item.customer_id), item.customer.name) }}{% endif %}
+  <div class="page-head">
+    <div class="title-row"><h1>{{ item.plate }}</h1><span class="vehicle-tag vehicle-{{ item.kind }}">{{ VEHICLE_LABELS[item.kind] }}</span></div>
+    <p class="page-sub">{{ [item.make, item.model, item.year]|select|join(' ') or 'Make and model not set' }} · {{ item.customer.name }}{% if last_km %} · last odometer {{ '{:,}'.format(last_km) }} km{% endif %}</p>
+  </div>
+  <section class="card">
+    <h2>Next Service Due</h2>
+    {% if due %}
+      <ul class="row-list">
+        {% for name, last_day, last_km_, due_day, due_km in due %}
+          <li>
+            <div class="row-main">
+              <strong>{{ name }}</strong>
+              <span class="muted small">Last done {{ last_day|day }} {{ last_day.year }}{% if last_km_ %} at {{ '{:,}'.format(last_km_) }} km{% endif %}</span>
+            </div>
+            <span>{% if due_day %}by {{ due_day|day }} {{ due_day.year }}{% endif %}{% if due_day and due_km %} or {% endif %}{% if due_km %}{{ '{:,}'.format(due_km) }} km{% endif %}</span>
+            {% if is_overdue(due_day, today) %}<span class="pill pill-cancelled">Due now</span>{% elif due_soon(due_day, today) %}<span class="pill pill-no_show">Due soon</span>{% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="muted">No PMS or oil change on record yet. After the first one, the next one is worked out here.</p>
+    {% endif %}
+  </section>
+  <section class="card table-card">
+    <div class="card-head table-title"><h2>Visits</h2></div>
+    {% if visits %}
+      <div class="table-scroll">
+        <table class="table">
+          <thead><tr><th scope="col">When</th><th scope="col">Services</th><th scope="col">Extra work approved</th><th scope="col" class="num">Odometer</th><th scope="col">Status</th></tr></thead>
+          <tbody>
+            {% for visit in visits %}
+              <tr>
+                <td><a class="row-title" href="{{ url_for('bookings.show', ref=visit.ref) }}">{{ visit.starts_at|local_moment(shop.timezone) }}</a></td>
+                <td>{{ visit.lines|map(attribute='name')|join(' + ') }}</td>
+                <td>{% if visit.job %}{{ visit.job.lines|selectattr('status', 'equalto', 'approved')|map(attribute='description')|join(', ') or '—' }}{% else %}—{% endif %}</td>
+                <td class="num">{{ '{:,}'.format(visit.mileage_in) if visit.mileage_in else '' }}</td>
+                <td>{{ status_pill(visit.status) }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted table-empty">No visits yet.</p>
+    {% endif %}
+  </section>
+{% endblock %}

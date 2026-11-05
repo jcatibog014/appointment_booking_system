@@ -36,6 +36,18 @@ PAGES = [
     ("today.png", "/desk", "light", DESKTOP, None),
     ("today-dark.png", "/desk", "dark", DESKTOP, None),
     ("today-mechanic.png", "/desk", "light", DESKTOP, "Jun dela Cruz"),
+    ("calendar.png", "/desk/calendar?by=bay", "light", DESKTOP, None),
+    ("calendar-week.png", "/desk/calendar?view=week", "light", DESKTOP, None),
+    ("calendar-dark.png", "/desk/calendar?by=mechanic", "dark", DESKTOP, None),
+    ("bookings.png", "/desk/bookings", "light", DESKTOP, "Mika Reyes"),
+    ("insights.png", "/desk/insights?days=30", "light", DESKTOP, None),
+    ("insights-dark.png", "/desk/insights?days=30#busiest", "dark", DESKTOP, None),
+    ("jobs.png", "/desk/jobs", "light", DESKTOP, None),
+    ("job.png", "job:NAB 4821", "light", DESKTOP, None),
+    ("estimate.png", "estimate:Toyota Vios", "light", DESKTOP, "Carlo Mendoza"),
+    ("parts.png", "/desk/parts", "light", DESKTOP, "Mika Reyes"),
+    ("vehicle.png", "vehicle:NAB 4821", "light", DESKTOP, None),
+    ("customer.png", "customer:Carlo Mendoza", "light", DESKTOP, "Mika Reyes"),
     ("settings.png", "/settings", "light", DESKTOP, None),
     ("hours.png", "/settings/hours", "light", DESKTOP, None),
     ("closures.png", "/settings/closures", "light", DESKTOP, None),
@@ -51,6 +63,9 @@ PAGES = [
     ("booking.png", "garage:first", "light", DESKTOP, "Carlo Mendoza"),
     ("booking-staff.png", "today:first", "light", DESKTOP, None),
     ("garage.png", "/garage", "light", DESKTOP, "Carlo Mendoza"),
+    ("waitlist-join.png", "waitjoin:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
+    ("waitlist.png", "/desk/waitlist", "light", DESKTOP, "Mika Reyes"),
+    ("phone-app.png", "/settings", "light", PHONE, "Carlo Mendoza"),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
     ("phone-times.png", "pick:moto:CVT Cleaning", "light", PHONE, "Carlo Mendoza"),
 ]
@@ -107,12 +122,40 @@ def main(only=None):
                 if action == "hold":
                     page.locator(".time-chip").first.click()
                     page.wait_for_url("**/book/details/**")
+            elif address.startswith("waitjoin:"):
+                _, vehicle, wanted = address.split(":")
+                page.goto(f"{BASE}/book?vehicle={vehicle}")
+                page.get_by_role("checkbox", name=wanted, exact=False).first.check()
+                page.get_by_role("button", name="Show free times").click()
+                page.wait_for_url("**/book?**service=**")
+                page.get_by_role("link", name="Join the waitlist").first.click()
+                page.wait_for_url("**/book/waitlist**")
+            elif address.startswith("job:"):
+                page.goto(f"{BASE}/desk/jobs")
+                page.locator(".job-card", has_text=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/jobs/**")
+            elif address.startswith("estimate:"):
+                page.goto(f"{BASE}/garage")
+                page.locator(".in-shop a.row-title", has_text=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/b/**")
+                page.locator("#estimate").scroll_into_view_if_needed()
+            elif address.startswith("vehicle:"):
+                page.goto(f"{BASE}/desk/customers?q={address.split(':', 1)[1]}")
+                page.locator("a.row-title").first.click()
+                page.get_by_role("link", name=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/desk/vehicles/**")
+            elif address.startswith("customer:"):
+                page.goto(f"{BASE}/desk/customers")
+                page.get_by_role("link", name=address.split(":", 1)[1]).first.click()
+                page.wait_for_url("**/desk/customers/**")
             elif address in ("garage:first", "today:first"):
                 page.goto(BASE + ("/garage" if address == "garage:first" else "/desk"))
                 page.locator("a.row-title[href^='/b/']").first.click()
                 page.wait_for_url("**/b/**")
             else:
                 page.goto(BASE + address)
+                if "#" in address:  # a picture of one part of the page
+                    page.locator("#" + address.split("#")[1]).scroll_into_view_if_needed()
             save(page, name)
             page.close()
         browser.close()

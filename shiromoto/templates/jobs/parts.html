@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% from "_macros.html" import csrf, field %}
+{% block title %}Parts - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Parts</h1>
+    <p class="page-sub">Stock goes down when a customer approves a part on an estimate, and never below zero.</p>
+  </div>
+  {% if low %}
+    <section class="card low-stock">
+      <h2>Low Stock</h2>
+      <ul class="plain-list">
+        {% for item in low %}<li><a href="{{ url_for('jobs.part', part_id=item.id) }}"><strong>{{ item.name }}</strong></a> <span class="muted">· {{ item.stock }} left (order at {{ item.low_level }})</span></li>{% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+  <div class="split">
+    <section class="card table-card">
+      {% if rows %}
+        <div class="table-scroll">
+          <table class="table">
+            <thead><tr><th scope="col">Part</th><th scope="col">Code</th><th scope="col" class="num">In stock</th><th scope="col" class="num">Price</th><th scope="col" class="num">Cost</th></tr></thead>
+            <tbody>
+              {% for item in rows %}
+                <tr data-href="{{ url_for('jobs.part', part_id=item.id) }}" class="{{ 'is-low' if item.is_low else '' }}">
+                  <td><a class="row-title" href="{{ url_for('jobs.part', part_id=item.id) }}">{{ item.name }}</a></td>
+                  <td class="mono">{{ item.sku }}</td>
+                  <td class="num">{{ item.stock }}{% if item.is_low %} <span class="pill pill-no_show">Low</span>{% endif %}</td>
+                  <td class="num">{{ item.price|peso }}</td>
+                  <td class="num muted">{{ item.cost|peso }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted table-empty">No parts yet. Add the ones you keep in the shop.</p>
+      {% endif %}
+    </section>
+    <section class="card">
+      <h2>Add a Part</h2>
+      <form method="post" class="stack">
+        {{ csrf() }}
+        {{ field('name', 'Name', request.form.name if errors else '', errors.name, hint='Like: Brake pads, front (Vios)', attrs='required maxlength="80"') }}
+        <div class="form-grid">
+          {{ field('sku', 'Code', request.form.sku if errors else '', errors.sku, attrs='maxlength="40"') }}
+          {{ field('stock', 'In stock now', request.form.stock if errors else '', errors.stock, attrs='inputmode="numeric"') }}
+          {{ field('price', 'Price (₱)', request.form.price if errors else '', errors.price, attrs='inputmode="decimal"') }}
+          {{ field('cost', 'Cost (₱)', request.form.cost if errors else '', errors.cost, hint='Only staff see it', attrs='inputmode="decimal"') }}
+          {{ field('low_level', 'Low at', request.form.low_level if errors else '2', errors.low_level, attrs='inputmode="numeric"') }}
+        </div>
+        <div class="form-actions"><button class="button" type="submit">Add part</button></div>
+      </form>
+    </section>
+  </div>
+{% endblock %}

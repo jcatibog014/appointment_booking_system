@@ -19,7 +19,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
-from .. import auth, booking, db, forms, shops, slots
+from .. import auth, booking, db, forms, notices, shops, slots, waitlist
 from ..dates import parse_day, to_local, utcnow
 from ..models import ANY, ONLINE, PHONE, SOURCE_LABELS, VEHICLE_KINDS, Appointment, Hold, Service
 from .bookings import open_booking, remember
@@ -89,11 +89,12 @@ def index():
     first, last = slots.bookable_days(shop, now)
     strip_start = parse_day(request.args.get("from")) or first
     strip_start = min(max(strip_start, first), last)
-    days = slots.week_of_choices(s, shop, need, strip_start, now, STRIP_DAYS, busy_for)
+    notice = 0 if staff_view else None  # staff book walk-ins from right now
+    days = slots.week_of_choices(s, shop, need, strip_start, now, STRIP_DAYS, busy_for, notice)
     wanted = parse_day(request.args.get("day"))
     picked = next((c for c in days if c.day == wanted), None)
     if picked is None and wanted and first <= wanted <= last:
-        picked = slots.day_choice(s, shop, need, wanted, now, busy_for(wanted))
+        picked = slots.day_choice(s, shop, need, wanted, now, busy_for(wanted), notice)
     if picked is None:
         picked = next((c for c in days if c.count), days[0])
     earlier = strip_start - timedelta(days=STRIP_DAYS)
@@ -218,6 +219,8 @@ def details(token):
                 errors["plate"] = str(error)
             else:
                 session.pop("hold", None)
+                notices.safely(s, notices.booked, shop, appointment, utcnow())
+                waitlist.booked_from_offer(s, held.token)
                 if getattr(appointment, "token", None):
                     remember(appointment.ref, appointment.token)
                 flash(f"Booked! Your booking number is {appointment.ref}.")

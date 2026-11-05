@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_job.html" import job_pill %}
+{% block title %}Jobs - {{ shop.name }}{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>Jobs</h1>
+    {% if g.user.role == 'mechanic' %}
+      <div class="segmented" role="group" aria-label="Whose jobs">
+        <a href="{{ url_for('jobs.board') }}"{% if mine %} aria-current="true"{% endif %}>Mine</a>
+        <a href="{{ url_for('jobs.board', all=1) }}"{% if not mine %} aria-current="true"{% endif %}>Everyone's</a>
+      </div>
+    {% endif %}
+    <p class="page-sub">{{ count }} vehicle{{ 's' if count != 1 }} in the shop. A job starts at check-in and ends when the vehicle is released.</p>
+  </div>
+  <div class="job-board">
+    {% for status, items in columns %}
+      <section class="job-column job-column-{{ status }}">
+        <h2>{{ JOB_LABELS[status] }} <span class="count">{{ items|length }}</span></h2>
+        {% for job in items %}
+          {% set visit = job.appointment %}
+          <a class="job-card" href="{{ url_for('jobs.show', job_id=job.id) }}">
+            <strong>{{ visit.vehicle.plate }}</strong>
+            <span>{{ visit.vehicle.make }} {{ visit.vehicle.model }}</span>
+            <span class="small">{{ visit.lines|map(attribute='name')|join(' + ') }}</span>
+            <span class="small muted">{{ visit.customer.name }} · {{ visit.mechanic.name }} · {{ visit.bay.name }}</span>
+            {% if job.lines|selectattr('status', 'equalto', 'proposed')|list %}<span class="pill job-awaiting_approval">Estimate to approve</span>{% endif %}
+          </a>
+        {% else %}
+          <p class="muted small">None.</p>
+        {% endfor %}
+      </section>
+    {% endfor %}
+  </div>
+{% endblock %}

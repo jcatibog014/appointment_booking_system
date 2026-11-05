@@ -1,6 +1,6 @@
 # Plan: ShiroMoto Garage
 
-> Progress: Stage 1 (setup) was PR #1 and stage 2 (availability engine) was PR #2, both merged. **Stage 3 (booking without double booking) is in PR #3.** Stages 4–8 are still to do. One PR per stage, with a stop for the owner's review after each one.
+> Progress: Stage 1 (setup) was PR #1 and stage 2 (availability engine) was PR #2, both merged. Stage 3 (booking) was PR #3, merged. **Stages 4–8 are in one PR (#4), a commit per stage** (the owner's choice after stage 3). All 8 stages are built; going live is the owner's step (README, Put It Online). One PR per stage, with a stop for the owner's review after each one.
 
 
 ## Context

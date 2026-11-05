@@ -1,8 +1,10 @@
 {% extends "base.html" %}
+{% from "_desk.html" import actions, status_pill, timeline with context %}
 {% block title %}Today - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="page-head">
     <h1>Today</h1>
+    {% if can_act %}<a class="button" href="{{ url_for('book.index', day=day.isoformat()) }}">Walk-in or caller</a>{% endif %}
     <p class="page-sub">{{ day|long_day }} · {{ greeting }}, {{ g.user.first_name }}.</p>
   </div>
 
@@ -20,14 +22,14 @@
       {% endif %}
     </div>
     <div class="stat card">
+      <p class="stat-label">{{ 'Your Jobs' if g.user.role == 'mechanic' else 'Bookings' }}</p>
+      <p class="stat-value">{{ queue|length }}</p>
+      <p class="muted small">{{ counts.checked_in }} checked in · {{ counts.booked }} to come{% if counts.no_show %} · {{ counts.no_show }} no-show{% endif %}</p>
+    </div>
+    <div class="stat card">
       <p class="stat-label">Mechanics In</p>
       <p class="stat-value">{{ working }} <span class="stat-of">of {{ plan.mechanics|length }}</span></p>
       <p class="muted small">{{ plan.mechanics|length - working }} off today</p>
-    </div>
-    <div class="stat card">
-      <p class="stat-label">Bays in Use</p>
-      <p class="stat-value">{{ bays|length }}</p>
-      <p class="muted small">{{ bays|map(attribute='bay_type.name')|unique|list|length }} kinds of bay</p>
     </div>
   </div>
 
@@ -45,21 +47,30 @@
     </section>
   {% endif %}
 
+  <section class="card">
+    <div class="card-head">
+      <h2>The Floor</h2>
+      <a class="small" href="{{ url_for('desk.calendar', by=by) }}">Open the calendar</a>
+    </div>
+    {{ timeline(board, by) }}
+  </section>
+
   <section class="card table-card">
-    <div class="card-head table-title"><h2>{{ 'Your Jobs Today' if g.user.role == 'mechanic' else "Today's Bookings" }}</h2><a class="button button-small" href="{{ url_for('book.index') }}">Book a customer</a></div>
-    {% if bookings %}
+    <div class="card-head table-title"><h2>{{ 'Your Jobs Today' if g.user.role == 'mechanic' else 'The Queue' }}</h2></div>
+    {% if queue %}
       <div class="table-scroll">
         <table class="table">
-          <thead><tr><th scope="col">Time</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Mechanic</th><th scope="col">Bay</th></tr></thead>
+          <thead><tr><th scope="col">Time</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Mechanic · Bay</th><th scope="col">Status</th>{% if can_act %}<th scope="col"><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
           <tbody>
-            {% for item in bookings %}
-              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}">
+            {% for item in queue %}
+              <tr class="{{ 'is-off' if item.status == 'no_show' else '' }}">
                 <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_time(shop.timezone) }}</a></td>
                 <td>{{ item.customer.name }}</td>
                 <td>{{ item.vehicle.label }}</td>
                 <td>{{ item.lines|map(attribute='name')|join(' + ') }}</td>
-                <td>{{ item.mechanic.name }}</td>
-                <td>{{ item.bay.name }}</td>
+                <td>{{ item.mechanic.name }} · {{ item.bay.name }}</td>
+                <td>{{ status_pill(item.status) }}{% if item.job %} <a class="small" href="{{ url_for('jobs.show', job_id=item.job.id) }}">{{ JOB_LABELS[item.job.status] }}</a>{% endif %}</td>
+                {% if can_act %}<td class="num actions-cell">{{ actions(item, now) }}</td>{% endif %}
               </tr>
             {% endfor %}
           </tbody>
@@ -88,17 +99,8 @@
         {% endfor %}
       </ul>
     </section>
-
     <section class="card">
-      <h2>Bays</h2>
-      <ul class="bay-list">
-        {% for bay in bays %}
-          <li><strong>{{ bay.name }}</strong> <span class="muted small">{{ bay.bay_type.name }}</span></li>
-        {% else %}
-          <li class="muted">No bays yet.</li>
-        {% endfor %}
-      </ul>
-      <h3 class="subhead">Next 14 Days</h3>
+      <h2>Next 14 Days</h2>
       {% if coming %}
         <ul class="plain-list small">
           {% for closure in coming %}

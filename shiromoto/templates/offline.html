@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Offline - {{ shop.name if shop else APP_NAME }}{% endblock %}
+{% block content %}
+  <div class="empty-state">
+    <p class="kicker">No connection</p>
+    <h1>You're Offline</h1>
+    <p>This page needs the internet. Check your data or Wi-Fi, then try again.</p>
+    <p><a class="button" href="/">Try again</a></p>
+  </div>
+{% endblock %}

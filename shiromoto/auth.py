@@ -205,9 +205,13 @@ def csrf_token():
     return session["csrf"]
 
 
+# Called by machines with their own secret, not by forms in a browser.
+CSRF_FREE = {"/tasks/tick"}
+
+
 @bp.before_app_request
 def check_csrf():
-    if request.method != "POST":
+    if request.method != "POST" or request.path in CSRF_FREE:
         return
     sent = request.form.get("csrf_token", "") or request.headers.get("X-CSRF-Token", "")
     expected = session.get("csrf", "")

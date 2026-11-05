@@ -1,0 +1,88 @@
+{# The front desk's building blocks: the timeline, and the Check in / No-show buttons. #}
+{% from "_macros.html" import csrf %}
+
+{# One row per bay or mechanic; one column per 15 minutes (timeline.py places the blocks). #}
+{% macro timeline(board, by, show_switch=True, switch_args={}) %}
+  {% if show_switch %}
+    <div class="segmented" role="group" aria-label="Rows">
+      <a href="{{ url_for(request.endpoint, by='bay', **switch_args) }}"{% if by == 'bay' %} aria-current="true"{% endif %}>By bay</a>
+      <a href="{{ url_for(request.endpoint, by='mechanic', **switch_args) }}"{% if by == 'mechanic' %} aria-current="true"{% endif %}>By mechanic</a>
+    </div>
+  {% endif %}
+  {% if board.closed %}
+    <p class="no-times">{{ board.closed }}</p>
+  {% elif not board.rows %}
+    <p class="muted">{{ 'No mechanics yet.' if by == 'mechanic' else 'No bays yet.' }}</p>
+  {% else %}
+    <div class="table-scroll">
+      <div class="timeline" role="table" aria-label="Timeline for {{ board.day|long_day }}">
+        <div class="tl-row tl-head" role="row">
+          <span class="tl-name" role="columnheader">{{ 'Mechanic' if by == 'mechanic' else 'Bay' }}</span>
+          {% for label, gs, ge in board.hours %}<span class="tl-hour gs-{{ gs }} ge-{{ ge }}" role="columnheader">{{ label }}</span>{% endfor %}
+          <span class="tl-end gs-{{ board.last - 1 }} ge-{{ board.last }}" aria-hidden="true"></span>
+        </div>
+        {% for row in board.rows %}
+          <div class="tl-row" role="row">
+            <span class="tl-name" role="rowheader"><strong>{{ row.name }}</strong><span class="muted small">{{ row.detail }}</span></span>
+            {% if board.now_column %}<span class="tl-now gs-{{ board.now_column }} ge-{{ board.now_column + 1 }}" aria-hidden="true"></span>{% endif %}
+            {% for block in row.blocks %}
+              {% if block.kind == 'break' %}
+                <span class="tl-break gs-{{ block.gs }} ge-{{ block.ge }}" aria-hidden="true"></span>
+              {% elif block.kind == 'hold' %}
+                <span class="tl-block tl-hold gs-{{ block.gs }} ge-{{ block.ge }}" role="cell">Held<span class="visually-hidden">: someone is booking this time</span></span>
+              {% else %}
+                {% set item = block.appointment %}
+                <a class="tl-block tl-{{ item.status }} gs-{{ block.gs }} ge-{{ block.ge }}" role="cell" href="{{ url_for('bookings.show', ref=item.ref) }}"
+                   title="{{ item.starts_at|local_time(shop.timezone) }} {{ item.customer.name }}: {{ item.lines|map(attribute='name')|join(' + ') }}">
+                  <strong>{{ item.vehicle.plate }}</strong>
+                  <span>{{ item.lines|map(attribute='name')|join(' + ') }}</span>
+                  <span class="visually-hidden">, {{ item.starts_at|local_time(shop.timezone) }} to {{ item.ends_at|local_time(shop.timezone) }}, {{ STATUS_LABELS[item.status] }}</span>
+                </a>
+              {% endif %}
+            {% endfor %}
+            <span class="tl-end gs-{{ board.last - 1 }} ge-{{ board.last }}" aria-hidden="true"></span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    <p class="tl-key small muted">
+      <span class="key key-booked"></span> Booked
+      <span class="key key-checked_in"></span> Checked in
+      <span class="key key-no_show"></span> No-show
+      <span class="key key-hold"></span> Being booked
+      <span class="key key-break"></span> Break or closed
+    </p>
+  {% endif %}
+{% endmacro %}
+
+{# The front desk's buttons for one booking. `next` brings the person back to this page. #}
+{% macro actions(item, now, check_in=True) %}
+  {% set here = request.full_path.rstrip('?') %}
+  {% if item.status == 'booked' %}
+    {% if check_in and now >= item.starts_at - CHECK_IN_EARLY and now < item.ends_at %}
+      <form method="post" action="{{ url_for('bookings.check_in', ref=item.ref) }}" class="inline-action">
+        {{ csrf() }}
+        <input type="hidden" name="version" value="{{ item.version }}">
+        <input type="hidden" name="next" value="{{ here }}">
+        <button class="button button-small" type="submit">Check in</button>
+      </form>
+    {% endif %}
+    {% if now >= item.starts_at + NO_SHOW_GRACE %}
+      <form method="post" action="{{ url_for('bookings.no_show', ref=item.ref) }}" class="inline-action" data-confirm="Mark {{ item.customer.name }} as a no-show? The rest of the time is freed for walk-ins.">
+        {{ csrf() }}
+        <input type="hidden" name="version" value="{{ item.version }}">
+        <input type="hidden" name="next" value="{{ here }}">
+        <button class="button button-small button-quiet" type="submit">No-show</button>
+      </form>
+    {% endif %}
+  {% elif item.status == 'no_show' and now < item.ends_at %}
+    <form method="post" action="{{ url_for('bookings.undo_no_show', ref=item.ref) }}" class="inline-action">
+      {{ csrf() }}
+      <input type="hidden" name="version" value="{{ item.version }}">
+      <input type="hidden" name="next" value="{{ here }}">
+      <button class="button button-small button-quiet" type="submit">They came</button>
+    </form>
+  {% endif %}
+{% endmacro %}
+
+{% macro status_pill(status) %}<span class="pill pill-{{ status }}">{{ STATUS_LABELS[status] }}</span>{% endmacro %}
