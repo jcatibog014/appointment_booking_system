@@ -1,4 +1,5 @@
 """Filters for templates: money, times, days and lengths, the way people in the shop say them."""
+from .dates import clock as minutes_to_time
 from .dates import to_local
 
 
@@ -25,6 +26,11 @@ def clock(value):
         return ""
     hour = value.hour % 12 or 12
     return f"{hour}:{value.minute:02d} {'AM' if value.hour < 12 else 'PM'}"
+
+
+def slot_time(start_minutes):
+    """Minutes since midnight -> "8:30 AM" (510 -> "8:30 AM")."""
+    return clock(minutes_to_time(start_minutes))
 
 
 def duration(total_minutes):
@@ -59,5 +65,5 @@ def local_moment(moment, tz_name="Asia/Manila"):
 
 
 def init_app(app):
-    app.jinja_env.filters.update(peso=peso, pesos_input=pesos_input, clock=clock, duration=duration, day=day,
+    app.jinja_env.filters.update(peso=peso, pesos_input=pesos_input, clock=clock, slot_time=slot_time, duration=duration, day=day,
                                  long_day=long_day, day_range=day_range, local_moment=local_moment)

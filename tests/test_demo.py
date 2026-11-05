@@ -13,7 +13,8 @@ from .conftest import CSRF, PASSWORD, find, post
 
 # Words that only appear when a list is empty. A demo page must show none of them.
 EMPTY_PAGE_SIGNS = ["No mechanics yet", "No bays yet", "No Services Yet", "Nothing planned", "open as usual",
-                    "No holidays, closures or leave", "No skills set", "services yet"]
+                    "No holidays, closures or leave", "No skills set", "services yet",
+                    "No services for this vehicle"]
 
 
 def start_demo(app):
@@ -160,7 +161,8 @@ def test_the_demo_has_a_limit(app, monkeypatch):
 # ---------- Every page has an example, for every role ----------
 
 def pages_for(app, role, shop_id):
-    pages = ["/", "/settings"]
+    pms = find(app, Service, Service.shop_id == shop_id, Service.name == "Car PMS")[0]
+    pages = ["/", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
     if role != "customer":
         pages.append("/desk")
     if role == "owner":
@@ -182,6 +184,16 @@ def test_no_page_the_demo_can_open_is_empty(app, demo, role):
         text = response.get_data(as_text=True)
         for sign in EMPTY_PAGE_SIGNS:
             assert sign not in text, f"{page} as {role} shows '{sign}'"
+
+
+def test_the_demo_shows_free_times_with_mechanics_and_bays(app, demo):
+    pms = find(app, Service, Service.shop_id == visitor(demo).shop_id, Service.name == "Car PMS")[0]
+    page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
+    assert "Free mechanics" in page and "Lift 1" in page
+    customer = person(app, visitor(demo).shop_id, "customer")
+    view_as(demo, customer)
+    page = demo.get(f"/book?vehicle=car&service={pms.id}").get_data(as_text=True)
+    assert "ready about" in page and "Lift 1" not in page
 
 
 def test_the_demo_shows_leave_a_part_day_closure_and_a_day_off(app, demo):

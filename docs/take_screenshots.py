@@ -28,7 +28,8 @@ DESKTOP = {"width": 1280, "height": 800}
 PHONE = {"width": 390, "height": 844}
 
 # (file name, address, theme, screen size, who: a demo person's name for View As, or None for the owner).
-# {mechanic} is Jun dela Cruz's staff page.
+# {mechanic} is Jun dela Cruz's staff page. "pick:car:Car PMS" ticks services on the Book page
+# and presses "Show free times".
 PAGES = [
     ("home.png", "/", "light", DESKTOP, None),
     ("today.png", "/desk", "light", DESKTOP, None),
@@ -41,7 +42,12 @@ PAGES = [
     ("services.png", "/settings/services", "light", DESKTOP, None),
     ("staff.png", "/settings/staff", "light", DESKTOP, None),
     ("mechanic.png", "{mechanic}", "light", DESKTOP, None),
+    ("book-services.png", "/book?vehicle=car", "light", DESKTOP, "Carlo Mendoza"),
+    ("book-times.png", "pick:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
+    ("free-times.png", "pick:car:Car Oil Change|Brake Service", "light", DESKTOP, None),
+    ("free-times-dark.png", "pick:moto:Motorcycle PMS", "dark", DESKTOP, None),
     ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
+    ("phone-times.png", "pick:moto:CVT Cleaning", "light", PHONE, "Carlo Mendoza"),
 ]
 
 
@@ -83,7 +89,15 @@ def main(only=None):
                 address = page.get_by_role("link", name="Jun dela Cruz").get_attribute("href")
             if who:
                 view_as(page, who)
-            page.goto(BASE + address)
+            if address.startswith("pick:"):
+                _, vehicle, names = address.split(":")
+                page.goto(f"{BASE}/book?vehicle={vehicle}")
+                for service in names.split("|"):
+                    page.get_by_role("checkbox", name=service, exact=False).first.check()
+                page.get_by_role("button", name="Show free times").click()
+                page.wait_for_url("**/book?**service=**")
+            else:
+                page.goto(BASE + address)
             save(page, name)
             page.close()
         browser.close()

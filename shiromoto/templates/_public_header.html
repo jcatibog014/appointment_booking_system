@@ -7,6 +7,7 @@
       <nav class="site-nav" aria-label="Main">
         <a href="{{ url_for('public.home') }}#services">Services</a>
         <a href="{{ url_for('public.home') }}#hours">Hours</a>
+        <a href="{{ url_for('book.index') }}"{% if request.blueprint == 'book' %} aria-current="page"{% endif %}>Book</a>
         {% if g.user and g.user.is_staff %}
           <a class="button button-small" href="{{ url_for('desk.today') }}">Back to the desk</a>
         {% elif g.user %}

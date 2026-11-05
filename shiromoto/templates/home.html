@@ -7,12 +7,10 @@
       <p class="kicker">Car and motorcycle service</p>
       <h1>{{ shop.name }}</h1>
       {% if shop.tagline %}<p class="hero-line">{{ shop.tagline }}</p>{% endif %}
-      {% if shop.phone %}
-        <p class="actions">
-          <a class="button" href="tel:{{ shop.phone|replace(' ', '') }}">Call {{ shop.phone }} to book</a>
-          <a class="button button-quiet" href="#services">See services and prices</a>
-        </p>
-      {% endif %}
+      <p class="actions">
+        <a class="button" href="{{ url_for('book.index') }}">Find a free time</a>
+        <a class="button button-quiet" href="#services">See services and prices</a>
+      </p>
     </div>
     {% set now_hours = hours[today.weekday()] %}
     <div class="hero-card card">
@@ -52,6 +50,7 @@
                     <div class="price-figure">
                       <span class="price">from {{ service.price_from|peso }}</span>
                       <span class="muted small">about {{ service.work_minutes|duration }}</span>
+                      <a class="small" href="{{ url_for('book.index', vehicle=kind, service=service.id) }}">Free times<span class="visually-hidden"> for {{ service.name }}</span></a>
                     </div>
                   </li>
                 {% endfor %}
