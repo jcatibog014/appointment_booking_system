@@ -59,8 +59,9 @@ PAGES = [
     ("mechanic.png", "{mechanic}", "light", DESKTOP, None),
     ("book-services.png", "/book?vehicle=car", "light", DESKTOP, "Carlo Mendoza"),
     ("book-times.png", "pick:car:Car PMS", "light", DESKTOP, "Carlo Mendoza"),
-    ("free-times.png", "pick:car:Car Oil Change|Brake Service", "light", DESKTOP, None),
-    ("free-times-dark.png", "pick:moto:Motorcycle PMS", "dark", DESKTOP, None),
+    ("free-times.png", "/desk/free?by=mechanic", "light", DESKTOP, None),
+    ("free-times-dark.png", "/desk/free?by=bay", "dark", DESKTOP, None),
+    ("book-staff.png", "pick:car:Car Oil Change|Brake Service", "light", DESKTOP, None),
     ("book-details.png", "hold:car:Car Oil Change", "light", DESKTOP, "Carlo Mendoza"),
     ("booking.png", "garage:first", "light", DESKTOP, "Carlo Mendoza"),
     ("booking-staff.png", "today:first", "light", DESKTOP, None),
@@ -76,7 +77,8 @@ PAGES = [
     ("move-desk-dark.png", "anchor:/desk:move-request", "dark", DESKTOP, "Jun dela Cruz"),
     ("waitlist.png", "/desk/waitlist", "light", DESKTOP, "Mika Reyes"),
     ("phone-app.png", "/settings", "light", PHONE, "Carlo Mendoza"),
-    ("phone.png", "/", "light", PHONE, "Carlo Mendoza"),
+    ("phone.png", "/shop", "light", PHONE, "Carlo Mendoza"),
+    ("garage-phone.png", "/garage", "dark", PHONE, "Carlo Mendoza"),
     ("phone-times.png", "pick:moto:CVT Cleaning", "light", PHONE, "Carlo Mendoza"),
 ]
 

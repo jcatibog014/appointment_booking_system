@@ -69,11 +69,10 @@ def today():
     coming = shops.closures_between(s, shop, day + timedelta(days=1), day + timedelta(days=14))
     steps = setup_steps(s, shop)
     greeting = "Good morning" if now.hour < 12 else "Good afternoon" if now.hour < 18 else "Good evening"
-    by = chosen_by()
     return render_template(
         "desk/today.html", day=day, plan=plan, greeting=greeting,
         working=sum(off is None for _, _, _, off in plan["mechanics"]), coming=coming, steps=steps, queue=queue,
-        steps_left=sum(not done for _, done, _ in steps), board=timeline.build(s, shop, day, moment, by), by=by,
+        steps_left=sum(not done for _, done, _ in steps),
         counts={status: sum(item.status == status for item in queue) for status in STATUS_LABELS},
         now=moment, can_act=g.user.role in (OWNER, ADVISOR), requests=quotes.open_requests(s, shop, moment),
         moves=moves.open_requests(s, shop, moment))
@@ -115,6 +114,56 @@ def calendar():
         context.update(week=week, notes=notes, previous=monday - timedelta(days=7),
                        following=monday + timedelta(days=7), monday=monday)
     return render_template("desk/calendar.html", **context)
+
+
+# ---------- Free Times: only what's left of each day ----------
+
+FREE_DAYS = 7
+
+
+@bp.get("/free")
+@staff_required
+def free_times():
+    """Each mechanic's and each bay's open time that isn't booked or held, for a
+    day: no vehicle or services to choose, just what's free."""
+    from .. import slots
+    s = db.session()
+    shop = shops.current()
+    moment = utcnow()
+    today = to_local(moment, shop.timezone).date()
+    first, last = slots.bookable_days(shop, moment)
+    day = parse_day(request.args.get("day")) or today
+    day = min(max(day, today), last)
+    strip_start = parse_day(request.args.get("from")) or day - timedelta(days=(day - today).days % FREE_DAYS)
+    strip_start = min(max(strip_start, today), last)
+
+    def free_on(d):
+        earliest = slots.earliest_minute(shop, d, moment, notice=0)
+        picture = slots.load_day(s, shop, d, booking.busy_map(s, shop, d, moment))
+        if earliest is None or picture.closed:
+            return picture, [], []
+        crew, bays = slots.free_time(picture, earliest)
+        return picture, crew, bays
+
+    strip = []
+    for n in range(FREE_DAYS):
+        d = strip_start + timedelta(days=n)
+        if d > last:
+            break
+        picture, crew, _ = free_on(d)
+        # Every mechanic's open time, added up: how busy the day still is.
+        open_minutes = sum(end - start for _, windows in crew for start, end in windows)
+        strip.append((d, picture.closed, open_minutes))
+    picture, crew, bays = free_on(day)
+    by = chosen_by()
+    return render_template(
+        "desk/free_times.html", day=day, today=today, strip=strip, picture=picture, by=by,
+        rows=crew if by == "mechanic" else bays, can_book=g.user.role in (OWNER, ADVISOR),
+        skills={m.id: m.skills for m in shops.mechanics(s, shop)},
+        bay_types={bay.id: bay.bay_type.name for bay in s.scalars(select(Bay).where(Bay.shop_id == shop.id))},
+        earlier=strip_start - timedelta(days=FREE_DAYS) if strip_start > today else None,
+        later=strip_start + timedelta(days=FREE_DAYS) if strip_start + timedelta(days=FREE_DAYS) <= last else None,
+        strip_start=strip_start)
 
 
 # ---------- Every booking ----------

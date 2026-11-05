@@ -242,9 +242,10 @@ def test_only_the_front_desk_uses_the_lists_and_buttons(app, shop_id, desk):
     assert post(mechanic, f"/b/{visit.ref}/check-in", {"version": 1}).status_code == 403
 
 
-def test_today_shows_the_floor_and_the_queue(desk):
+def test_today_shows_the_queue_but_not_the_calendar_again(desk):
     page = desk.get("/desk").get_data(as_text=True)
-    assert "The Floor" in page and "The Queue" in page and "By mechanic" in page and "Walk-in or caller" in page
+    assert "The Queue" in page and "Walk-in or caller" in page and "See it on the calendar" in page
+    assert "The Floor" not in page  # the timeline is the Calendar's; Today doesn't repeat it
 
 
 def test_staff_dont_need_notice_on_the_free_times_page(app, desk, shop_id):

@@ -624,6 +624,30 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .move-compare p { margin: 0; }
 .move-arrow { font-size: 2rem; color: var(--accent); }
 .move-compare-small { margin-bottom: 1rem; }
+/* The booking card's desk buttons and Cancel, folded into it. */
+.desk-actions { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--rule); display: grid; gap: .75rem; }
+.desk-actions p { margin: 0; }
+.cancel-details { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--rule); }
+.cancel-details summary { color: var(--danger); font-weight: 600; font-size: .92rem; }
+.cancel-details[open] summary { margin-bottom: .75rem; }
+/* My Garage, as a dashboard. */
+.stat-value-small { font-size: 1.35rem; }
+.stat-value-small a { color: inherit; text-decoration: none; }
+.stat-value-small a:hover { text-decoration: underline; }
+.to-answer { border-left: 4px solid var(--accent); }
+.past-details summary { display: flex; align-items: baseline; gap: .6rem; list-style: none; }
+.past-details summary::-webkit-details-marker { display: none; }
+.past-details summary h2 { margin: 0; }
+.past-details summary::after { content: "Show"; margin-left: auto; color: var(--accent); font-size: .9rem; font-weight: 600; }
+.past-details[open] summary::after { content: "Hide"; }
+.past-details[open] summary { margin-bottom: .75rem; }
+.add-vehicle { margin-top: 1rem; padding-top: .75rem; border-top: 1px solid var(--rule); }
+.add-vehicle summary { color: var(--accent); font-weight: 600; }
+.add-vehicle[open] summary { margin-bottom: .75rem; }
+/* Free Times: what's left of each day. */
+.free-table th[scope="row"] { display: flex; flex-direction: column; min-width: 10rem; font-weight: 400; }
+.free-list { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
+.free-chip { padding: .2rem .6rem; border-radius: var(--radius-small); background: var(--ok-soft, var(--accent-soft)); color: var(--ok-ink, var(--ink)); font-weight: 600; font-size: .9rem; white-space: nowrap; }
 .move-compare-small .held-when { font-size: 1.15rem; }
 .move-compare-small .move-arrow { font-size: 1.5rem; }
 .move-card .actions { margin-top: .25rem; }

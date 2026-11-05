@@ -161,6 +161,7 @@ class DayPicture:
     closes: int
     crew: list
     bays: list
+    windows: list = field(default_factory=list)  # the shop's open time, breaks and part-day closures cut out
 
 
 @dataclass
@@ -243,7 +244,18 @@ def load_day(s, shop, day, busy=None):
     bays = [Place(id=bay.id, name=bay.name, bay_type_id=bay.bay_type_id, busy=busy.get(("bay", bay.id), []))
             for bay in s.scalars(select(Bay).where(Bay.shop_id == shop.id, Bay.is_active.is_(True))
                                  .order_by(Bay.position, Bay.name))]
-    return DayPicture(day=day, closed=closed, opens=opens, closes=closes, crew=crew, bays=bays)
+    return DayPicture(day=day, closed=closed, opens=opens, closes=closes, crew=crew, bays=bays, windows=base)
+
+
+def free_time(picture, earliest=0):
+    """What's left of one day, for the staff's Free Times page: for each mechanic and
+    each bay, its open time minus what is booked or held, from `earliest` on.
+    Returns (crew rows, bay rows), each a list of (Crew or Place, [(start, end), ...])."""
+    def left(windows, busy):
+        return [w for w in subtract(intersect(windows, earliest, 24 * 60), busy) if w[1] - w[0] >= STEP]
+    crew = [(person, [] if person.off else left(person.windows, person.busy)) for person in picture.crew]
+    bays = [(bay, left(picture.windows, bay.busy)) for bay in picture.bays]
+    return crew, bays
 
 
 def free_slots(picture, need, earliest=0):

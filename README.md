@@ -66,7 +66,7 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 **The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
 
-**Free Times** (staff, in the menu): the same page, plus which mechanics and which bays are free at each time.
+**Free Times** (staff, in the menu) is not a booking page. It shows only what's still open: for each mechanic (or each bay), the stretches of the day that aren't booked or held, like "8:00 AM – 12:00 PM", and how much that is in all. Each day in the strip shows its mechanics' open hours, added up. To book from it, press **Book a walk-in or caller**. That page also shows which mechanics and bays each start time would use.
 
 ## How Double Booking Is Stopped
 
@@ -102,21 +102,28 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 - **Add to calendar:** an .ics file with Manila time and a reminder the evening before.
 - **Ask for a new time or cancel online** until 12 hours before (the owner sets this). After that, call the shop. A new time needs the shop's OK (see below).
 - **An account (My Garage)** keeps your vehicles and bookings together and fills in the form for you. Open a guest booking's link while logged in, then press **Save to My Garage**.
+- **My Garage is the customer's dashboard** and their start page (the phone app opens it too). At the top: the next visit, what's in the shop, and the next service due. Under them, **Needs Your Answer** lists estimates and prices waiting for them. Then the vehicle in the shop, coming bookings, vehicles, and past visits (folded away).
+- The customer's menu is just **My Garage, Book, Services, Settings**. The shop's hours are on the Services page, so they don't need a button of their own.
 
 **For staff:**
-- **Free Times** books for a caller or a walk-in.
+- **Free Times** shows what's still open, and **Book a walk-in or caller** books from it.
 - **Today** lists the day's bookings. A mechanic sees their own jobs.
 - Staff can open any booking, and can move or cancel it at any time. They also answer customers' move requests.
 
 ## The Front Desk
 
-- **Today** shows **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes. You can see the bookings, the times someone is booking right now, lunch, and a red line for "now". Under it is **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
+- **Today** is the desk's to-do page:
+  - three tiles for the shop's hours (and the next closure), the day's bookings, and who's in;
+  - **Needs an Answer**: move requests and Other Service prices, in one list;
+  - **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
+- **Calendar** is **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes, with the bookings, the times someone is booking right now, lunch, and a red line for "now". Today doesn't repeat it.
 - **No-show:** after 15 minutes the front desk can mark a no-show. The rest of that booking's time is freed at once, so a walk-in can have the bay. If the customer comes after all, **They came** takes the time back. But if a walk-in was already booked into it, the database refuses and nothing changes.
 - **Walk-ins and callers:** staff book from **right now**. The customers' 2-hour notice is only for online bookings.
-- **Calendar:** any day as the timeline (by bay or by mechanic), or a whole week.
+- **Calendar:** any day as the floor (by bay or by mechanic), or a whole week.
 - **Bookings:** every booking. Search by booking number, name, phone (written any way) or plate, and filter by status, who booked and dates.
 - **Customers:** everyone who booked, with their vehicles, visits, no-shows and the shop's private notes.
-- Mechanics see Today (their own jobs) and the Calendar. The owner and service advisors see everything.
+- **A booking's page** keeps everything in one card: the details, then Add to calendar and Move, then Check in and No-show for the desk, then **Cancel this booking** (folded away until you need it).
+- Mechanics see Today (their own jobs), the Calendar, Jobs and Free Times. The owner and service advisors see everything.
 
 ## Jobs, Estimates and Parts
 
@@ -221,6 +228,7 @@ For the owner, over the last 7, 30 or 90 days:
 | ![The customer's move request, waiting for the shop](docs/screenshots/move-ask.png) A move request, waiting for the shop | ![Staff approve or decline the new time](docs/screenshots/move-desk.png) Staff approve or decline it |
 | ![A mechanic answers a move request, in dark mode](docs/screenshots/move-desk-dark.png) A mechanic answers, dark mode | |
 | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone |
+| ![My Garage on a phone, in dark mode](docs/screenshots/garage-phone.png) My Garage on a phone, dark mode | |
 | ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Make an account](docs/screenshots/signup.png) Make an account |
 
 **The front desk and the workshop**
@@ -230,7 +238,8 @@ For the owner, over the last 7, 30 or 90 days:
 | ![Today in dark mode](docs/screenshots/today-dark.png) Today, dark mode | ![Today, as a mechanic](docs/screenshots/today-mechanic.png) Today, as a mechanic |
 | ![The calendar, one day by bay](docs/screenshots/calendar.png) Calendar: a day, by bay | ![The calendar, one week](docs/screenshots/calendar-week.png) Calendar: a week |
 | ![The calendar by mechanic, in dark mode](docs/screenshots/calendar-dark.png) By mechanic, dark mode | ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff |
-| ![Free Times in dark mode](docs/screenshots/free-times-dark.png) Free Times, dark mode | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
+| ![Free Times by bay, in dark mode](docs/screenshots/free-times-dark.png) Free Times by bay, dark mode | ![A booking, as staff see it](docs/screenshots/booking-staff.png) A booking, as staff see it |
+| ![Booking for a walk-in or caller](docs/screenshots/book-staff.png) Booking for a walk-in or caller | |
 | ![Every booking, with search](docs/screenshots/bookings.png) Bookings | ![A customer's page](docs/screenshots/customer.png) A customer |
 | ![The Jobs board](docs/screenshots/jobs.png) Jobs board | ![A job, with its estimate](docs/screenshots/job.png) A job and its estimate |
 | ![Parts and stock](docs/screenshots/parts.png) Parts and stock | ![A vehicle's history and next service](docs/screenshots/vehicle.png) A vehicle's history |

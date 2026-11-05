@@ -259,7 +259,7 @@ def test_the_desk_lists_what_needs_a_price(app, shop_id, day):
     make_booking(app, shop_id, day)
     owner = log_in_as(app.test_client(), make_user(app, shop_id, "hiro@shop.example", "owner", "Hiro"))
     page = owner.get("/desk").get_data(as_text=True)
-    assert "Other Services to Price" in page and ASKED in page and "1 to send" in page
+    assert "Needs an Answer" in page and ASKED in page and "1 for the shop" in page
 
 
 @pytest.mark.parametrize("run", range(5))

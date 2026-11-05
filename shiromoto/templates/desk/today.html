@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_desk.html" import actions, status_pill, timeline with context %}
+{% from "_desk.html" import actions, status_pill with context %}
 {% from "_macros.html" import quote_pill %}
 {% block title %}Today - {{ shop.name }}{% endblock %}
 {% block content %}
@@ -9,7 +9,9 @@
     <p class="page-sub">{{ day|long_day }} · {{ greeting }}, {{ g.user.first_name }}.</p>
   </div>
 
+  {# The day at a glance. Who works and the next closures used to be cards of their own. #}
   {% set hours = plan.hours %}
+  {% set off_today = plan.mechanics|selectattr(3)|list %}
   <div class="stat-row">
     <div class="stat card">
       <p class="stat-label">Shop</p>
@@ -21,6 +23,9 @@
         <p class="muted small">{% if hours.break_starts %}Lunch {{ hours.break_starts|clock }} – {{ hours.break_ends|clock }}{% else %}No break{% endif %}
           {% for c in plan.shop_closures if c.from_time %} · Closed {{ c.from_time|clock }} – {{ c.to_time|clock }} ({{ c.reason }}){% endfor %}</p>
       {% endif %}
+      {% if coming %}{% set next_one = coming[0] %}
+        <p class="muted small">Next: {{ next_one.starts_on|day_range(next_one.ends_on) }}, {% if next_one.user %}{{ next_one.user.name }} on leave{% else %}{{ next_one.reason }}{% endif %}{% if coming|length > 1 %} · <a href="{{ url_for('settings.closures') if g.user.role == 'owner' else url_for('desk.calendar', view='week') }}">{{ coming|length - 1 }} more</a>{% endif %}</p>
+      {% endif %}
     </div>
     <div class="stat card">
       <p class="stat-label">{{ 'Your jobs' if g.user.role == 'mechanic' else 'Bookings' }}</p>
@@ -30,7 +35,7 @@
     <div class="stat card">
       <p class="stat-label">Mechanics in</p>
       <p class="stat-value">{{ working }} <span class="stat-of">of {{ plan.mechanics|length }}</span></p>
-      <p class="muted small">{{ plan.mechanics|length - working }} off today</p>
+      <p class="muted small">{% if not plan.mechanics %}No mechanics yet.{% elif off_today %}Off: {% for mechanic, _, _, off in off_today %}{{ mechanic.first_name }} ({{ off|lower }}){{ ', ' if not loop.last }}{% endfor %}{% else %}Everyone is in.{% endif %}</p>
     </div>
   </div>
 
@@ -48,49 +53,34 @@
     </section>
   {% endif %}
 
-  {% if moves %}
-    <section class="card table-card">
-      <div class="card-head table-title">
-        <h2>Move Requests</h2>
-        <span class="muted small">{{ moves|length }} waiting for an answer</span>
-      </div>
-      <div class="table-scroll">
-        <table class="table">
-          <thead><tr><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Now</th><th scope="col">They ask for</th><th scope="col">Asked</th></tr></thead>
-          <tbody>
-            {% for item in moves %}
-              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">
-                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ item.customer.name }}</a></td>
-                <td>{{ item.vehicle.label }}</td>
-                <td class="muted">{{ item.starts_at|local_moment(shop.timezone) }}</td>
-                <td><strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong></td>
-                <td class="small">{{ item.move_asked_at|local_moment(shop.timezone) }}</td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-    </section>
-  {% endif %}
-
-  {% if requests %}
+  {# Everything customers are waiting on the shop for, in one list: new times and prices. #}
+  {% if moves or requests %}
     {% set to_send = requests|selectattr('quote_status', 'equalto', 'to_price')|list|length %}
     <section class="card table-card">
       <div class="card-head table-title">
-        <h2>Other Services to Price</h2>
-        <span class="muted small">{{ to_send }} to send · {{ requests|length - to_send }} waiting for the customer</span>
+        <h2>Needs an Answer</h2>
+        <span class="muted small">{{ moves|length + to_send }} for the shop{% if requests|length - to_send %} · {{ requests|length - to_send }} waiting for the customer{% endif %}</span>
       </div>
       <div class="table-scroll">
         <table class="table">
-          <thead><tr><th scope="col">When</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">What they asked for</th><th scope="col">Price</th></tr></thead>
+          <thead><tr><th scope="col">What</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Details</th><th scope="col">Booking</th></tr></thead>
           <tbody>
-            {% for item in requests %}
-              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">
-                <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">{{ item.starts_at|local_moment(shop.timezone) }}</a></td>
+            {% for item in moves %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">
+                <td><a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">New time</a></td>
                 <td>{{ item.customer.name }}</td>
                 <td>{{ item.vehicle.label }}</td>
-                <td class="request-cell">“{{ item.request_text }}”</td>
-                <td>{{ quote_pill(item.quote_status) }}{% if item.quote_price %} <span class="small">{{ item.quote_price|peso }}</span>{% endif %}</td>
+                <td>Asks for <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong></td>
+                <td class="muted">{{ item.starts_at|local_moment(shop.timezone) }}</td>
+              </tr>
+            {% endfor %}
+            {% for item in requests %}
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">
+                <td><a href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">{{ quote_pill(item.quote_status) }}</a></td>
+                <td>{{ item.customer.name }}</td>
+                <td>{{ item.vehicle.label }}</td>
+                <td class="request-cell">“{{ item.request_text }}”{% if item.quote_price %} <span class="small">· {{ item.quote_price|peso }}</span>{% endif %}</td>
+                <td class="muted">{{ item.starts_at|local_moment(shop.timezone) }}</td>
               </tr>
             {% endfor %}
           </tbody>
@@ -99,16 +89,13 @@
     </section>
   {% endif %}
 
-  <section class="card">
-    <div class="card-head">
-      <h2>The Floor</h2>
-      <a class="small" href="{{ url_for('desk.calendar', by=by) }}">Open the calendar</a>
-    </div>
-    {{ timeline(board, by) }}
-  </section>
-
+  {# The day's bookings, with Check in and No-show. The floor (who is where, hour by hour)
+     is the Calendar's day view, so it isn't repeated here. #}
   <section class="card table-card">
-    <div class="card-head table-title"><h2>{{ 'Your Jobs Today' if g.user.role == 'mechanic' else 'The Queue' }}</h2></div>
+    <div class="card-head table-title">
+      <h2>{{ 'Your Jobs Today' if g.user.role == 'mechanic' else 'The Queue' }}</h2>
+      <a class="small" href="{{ url_for('desk.calendar') }}">See it on the calendar</a>
+    </div>
     {% if queue %}
       <div class="table-scroll">
         <table class="table">
@@ -132,38 +119,4 @@
       <p class="muted table-empty">{{ 'No jobs for you today.' if g.user.role == 'mechanic' else 'No bookings today yet.' }}</p>
     {% endif %}
   </section>
-
-  <div class="grid-2">
-    <section class="card">
-      <h2>Mechanics</h2>
-      <ul class="people-list">
-        {% for mechanic, starts, ends, off in plan.mechanics %}
-          <li class="{{ 'is-off' if off else '' }}">
-            <span class="avatar" aria-hidden="true">{{ mechanic.name[:1] }}</span>
-            <div class="people-main">
-              <strong>{{ mechanic.name }}</strong>
-              <span class="muted small">{{ mechanic.skills|map(attribute='name')|join(', ') or 'No skills set' }}</span>
-            </div>
-            <span class="people-side">{% if off %}<span class="pill pill-off">{{ off }}</span>{% else %}{{ starts|clock }} – {{ ends|clock }}{% endif %}</span>
-          </li>
-        {% else %}
-          <li class="muted">No mechanics yet.{% if g.user.role == 'owner' %} <a href="{{ url_for('settings.staff') }}">Invite one</a>.{% endif %}</li>
-        {% endfor %}
-      </ul>
-    </section>
-    <section class="card">
-      <h2>Next 14 Days</h2>
-      {% if coming %}
-        <ul class="plain-list small">
-          {% for closure in coming %}
-            <li><strong>{{ closure.starts_on|day_range(closure.ends_on) }}</strong>
-              {% if closure.user %}{{ closure.user.name }} on leave{% else %}{{ CLOSURE_LABELS[closure.kind] }}{% endif %}{% if closure.from_time %}, {{ closure.from_time|clock }} – {{ closure.to_time|clock }}{% endif %}
-              <span class="muted">· {{ closure.reason }}</span></li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="muted small">No holidays, closures or leave.</p>
-      {% endif %}
-    </section>
-  </div>
 {% endblock %}

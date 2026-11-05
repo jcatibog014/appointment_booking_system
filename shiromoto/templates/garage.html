@@ -20,8 +20,66 @@
   <div class="page-head">
     <h1>My Garage</h1>
     <a class="button" href="{{ url_for('book.index') }}">Book a service</a>
-    <p class="page-sub">Hello, {{ g.user.first_name }}. Your vehicles and bookings at {{ shop.name }}.</p>
+    <p class="page-sub">Hello, {{ g.user.first_name }}. Everything about your vehicles at {{ shop.name }}.</p>
   </div>
+
+  {# The dashboard: the next visit, what's in the shop, and the next service due. #}
+  {% set next_visit = upcoming[0] if upcoming else none %}
+  <div class="stat-row">
+    <div class="stat card">
+      <p class="stat-label">Next visit</p>
+      {% if next_visit %}
+        <p class="stat-value stat-value-small"><a href="{{ url_for('bookings.show', ref=next_visit.ref) }}">{{ next_visit.starts_at|local_moment(shop.timezone) }}</a></p>
+        <p class="muted small">{{ next_visit.lines|map(attribute='name')|join(' + ') }} · {{ next_visit.vehicle.plate }}</p>
+      {% else %}
+        <p class="stat-value stat-value-small">None booked</p>
+        <p class="muted small"><a href="{{ url_for('book.index') }}">Find a free time</a></p>
+      {% endif %}
+    </div>
+    <div class="stat card">
+      <p class="stat-label">In the shop</p>
+      {% if in_shop %}
+        <p class="stat-value stat-value-small">{{ in_shop[0].vehicle.plate }}{% if in_shop|length > 1 %} <span class="stat-of">+ {{ in_shop|length - 1 }} more</span>{% endif %}</p>
+        <p class="muted small">{{ JOB_LABELS[in_shop[0].job.status] }}</p>
+      {% else %}
+        <p class="stat-value stat-value-small">Nothing</p>
+        <p class="muted small">No vehicle of yours is at the shop now.</p>
+      {% endif %}
+    </div>
+    <div class="stat card">
+      <p class="stat-label">Next service due</p>
+      {% if next_due %}{% set due_day, due_name, due_vehicle = next_due %}
+        <p class="stat-value stat-value-small">{{ due_day|day }} {{ due_day.year }}</p>
+        <p class="muted small">{{ due_name }} · {{ due_vehicle.plate }} · <a href="{{ url_for('book.index', vehicle=due_vehicle.kind) }}">Book it</a></p>
+      {% else %}
+        <p class="stat-value stat-value-small">Nothing yet</p>
+        <p class="muted small">After a PMS or oil change, we work out the next one.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if answers %}
+    <section class="card to-answer">
+      <h2>Needs Your Answer</h2>
+      <ul class="row-list">
+        {% for kind, item in answers %}
+          <li>
+            <div class="row-main">
+              {% if kind == 'estimate' %}
+                <strong>Approve or decline the estimate for {{ item.vehicle.plate }}</strong>
+                <span class="muted small">Our mechanic found something. We only do what you approve.</span>
+              {% else %}
+                <strong>Confirm the price for {{ item.vehicle.plate }}: {{ item.quote_price|peso }}</strong>
+                <span class="muted small">For “{{ item.request_text }}” on {{ item.starts_at|local_moment(shop.timezone) }}</span>
+              {% endif %}
+            </div>
+            <a class="button button-small" href="{{ url_for('bookings.show', ref=item.ref) }}#{{ 'estimate' if kind == 'estimate' else 'other-service' }}">{{ 'See the estimate' if kind == 'estimate' else 'See the price' }}</a>
+          </li>
+        {% endfor %}
+      </ul>
+    </section>
+  {% endif %}
+
   <div class="split">
     <div>
       {% if in_shop %}
@@ -50,8 +108,10 @@
       </section>
       {% if past %}
         <section class="card">
-          <h2>Past and Cancelled</h2>
-          <ul class="row-list">{% for item in past %}{{ booking_row(item) }}{% endfor %}</ul>
+          <details class="past-details">
+            <summary><h2>Past and Cancelled</h2><span class="muted small">{{ past|length }}</span></summary>
+            <ul class="row-list">{% for item in past %}{{ booking_row(item) }}{% endfor %}</ul>
+          </details>
         </section>
       {% endif %}
     </div>
@@ -75,20 +135,20 @@
         {% else %}
           <p class="muted">Add your car or motorcycle, and the booking form fills it in for you.</p>
         {% endif %}
-      </section>
-      <section class="card">
-        <h2>Add a Vehicle</h2>
-        <form method="post" action="{{ url_for('garage.add_vehicle') }}" class="stack">
-          {{ csrf() }}
-          <div class="form-grid">
-            {{ select('kind', 'Kind', [('car', 'Car'), ('moto', 'Motorcycle')], 'car') }}
-            {{ field('plate', 'Plate number', hint='Like ABC 1234', attrs='required maxlength="16" autocapitalize="characters"') }}
-            {{ field('make', 'Make', attrs='maxlength="40"') }}
-            {{ field('model', 'Model', attrs='maxlength="40"') }}
-            {{ field('year', 'Year', attrs='inputmode="numeric" maxlength="4"') }}
-          </div>
-          <div class="form-actions"><button class="button" type="submit">Add vehicle</button></div>
-        </form>
+        <details class="add-vehicle"{% if not customer.vehicles %} open{% endif %}>
+          <summary>Add a vehicle</summary>
+          <form method="post" action="{{ url_for('garage.add_vehicle') }}" class="stack">
+            {{ csrf() }}
+            <div class="form-grid">
+              {{ select('kind', 'Kind', [('car', 'Car'), ('moto', 'Motorcycle')], 'car') }}
+              {{ field('plate', 'Plate number', hint='Like ABC 1234', attrs='required maxlength="16" autocapitalize="characters"') }}
+              {{ field('make', 'Make', attrs='maxlength="40"') }}
+              {{ field('model', 'Model', attrs='maxlength="40"') }}
+              {{ field('year', 'Year', attrs='inputmode="numeric" maxlength="4"') }}
+            </div>
+            <div class="form-actions"><button class="button" type="submit">Add vehicle</button></div>
+          </form>
+        </details>
       </section>
     </div>
   </div>
