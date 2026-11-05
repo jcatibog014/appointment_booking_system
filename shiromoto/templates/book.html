@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% set title = 'Free Times' if staff_view else 'Book a Service' %}
+{% block title %}{{ title }} - {{ shop.name }}{% endblock %}
+{% block page_class %}book{% endblock %}
+{% block content %}
+  <div class="page-head">
+    <h1>{{ title }}</h1>
+    <p class="page-sub">{% if staff_view %}Every time that has a free bay and a free mechanic with the right skills. Times are on the shop's clock.{% else %}Choose your vehicle and services, then pick a day and a time.{% endif %}</p>
+  </div>
+
+  <ol class="steps" aria-label="Steps">
+    <li class="{{ 'is-done' if step > 1 else 'is-current' }}">{% if step > 1 %}<a href="{{ url_for('book.index') }}">Vehicle</a>{% else %}Vehicle{% endif %}</li>
+    <li class="{{ 'is-done' if step > 2 else ('is-current' if step == 2 else '') }}">{% if step > 2 %}<a href="{{ change_url }}">Services</a>{% else %}Services{% endif %}</li>
+    <li class="{{ 'is-current' if step == 3 else '' }}">Day and time</li>
+  </ol>
+
+  {% if step == 1 %}
+    <div class="vehicle-choice">
+      {% for kind, title, line in (('car', 'Car', 'Sedans, SUVs, vans and pick-ups'), ('moto', 'Motorcycle', 'Scooters, underbones and big bikes')) %}
+        <a class="vehicle-card vehicle-card-{{ kind }}" href="{{ url_for('book.index', vehicle=kind) }}">
+          <span class="vehicle-card-title">{{ title }}</span>
+          <span class="muted">{{ line }}</span>
+        </a>
+      {% endfor %}
+    </div>
+
+  {% elif step == 2 %}
+    <form method="get" action="{{ url_for('book.index') }}" class="card stack">
+      <input type="hidden" name="vehicle" value="{{ vehicle }}">
+      <div class="card-head">
+        <h2>Services for Your {{ 'Car' if vehicle == 'car' else 'Motorcycle' }}</h2>
+        <a class="small" href="{{ url_for('book.index') }}">Change vehicle</a>
+      </div>
+      {% for category, services in menu.items() %}
+        <fieldset class="plain-fieldset service-group">
+          <legend><h4>{{ category }}</h4></legend>
+          {% for service in services %}
+            <label class="service-pick">
+              <input type="checkbox" name="service" value="{{ service.id }}"{% if service.id in chosen_ids %} checked{% endif %}>
+              <span class="service-pick-text"><strong>{{ service.name }}</strong><span class="muted small">{{ service.description }}</span></span>
+              <span class="service-pick-figure"><span class="price">from {{ service.price_from|peso }}</span><span class="muted small">about {{ service.work_minutes|duration }}</span></span>
+            </label>
+          {% endfor %}
+        </fieldset>
+      {% else %}
+        <p class="muted">No services for this vehicle right now.</p>
+      {% endfor %}
+      <div class="form-actions"><button class="button" type="submit">Show free times</button></div>
+    </form>
+
+  {% else %}
+    <section class="card visit-summary">
+      <div class="visit-lines">
+        <span class="vehicle-tag vehicle-{{ vehicle }}">{{ VEHICLE_LABELS[vehicle] }}</span>
+        <ul class="visit-services">{% for service in chosen %}<li>{{ service.name }}</li>{% endfor %}</ul>
+      </div>
+      {% if need %}
+        <dl class="facts">
+          <div><dt>Work time</dt><dd>about {{ need.work_minutes|duration }}</dd></div>
+          <div><dt>Price</dt><dd>from {{ price_from|peso }}</dd></div>
+          {% if staff_view %}<div><dt>Needs</dt><dd>{{ need.bay_type_name }}{% if need.skill_names %} · {{ need.skill_names|join(', ') }}{% endif %}{% if need.buffer_minutes %} · {{ need.buffer_minutes }} min clean-up{% endif %}</dd></div>{% endif %}
+        </dl>
+      {% endif %}
+      <a class="button button-small button-quiet" href="{{ change_url }}">Change services</a>
+    </section>
+
+    {% if problem %}
+      <p class="form-error" role="alert">{{ problem }}</p>
+    {% else %}
+      <nav class="day-strip" aria-label="Days">
+        {% if earlier_url %}<a class="day-arrow" href="{{ earlier_url }}" aria-label="Earlier days">&lsaquo;</a>{% else %}<span class="day-arrow is-off" aria-hidden="true">&lsaquo;</span>{% endif %}
+        <ul>
+          {% for choice in days %}
+            <li>
+              <a class="day-pill{{ ' is-picked' if choice.day == picked.day else '' }}{{ ' is-full' if not choice.count else '' }}" href="{{ day_url(choice.day) }}"{% if choice.day == picked.day %} aria-current="date"{% endif %}>
+                <span class="day-name">{{ choice.day.strftime('%a') }}</span>
+                <span class="day-number">{{ choice.day.day }} {{ choice.day.strftime('%b') }}</span>
+                <span class="day-count">{% if choice.count %}{{ choice.count }} time{{ 's' if choice.count != 1 }}{% elif 'Closed' in (choice.reason or '') %}Closed{% else %}None{% endif %}</span>
+              </a>
+            </li>
+          {% endfor %}
+        </ul>
+        {% if later_url %}<a class="day-arrow" href="{{ later_url }}" aria-label="Later days">&rsaquo;</a>{% else %}<span class="day-arrow is-off" aria-hidden="true">&rsaquo;</span>{% endif %}
+      </nav>
+
+      <section class="card">
+        <h2>{{ picked.day|long_day }}</h2>
+        {% if not picked.count %}
+          <p class="no-times">{{ picked.reason }}</p>
+          <p class="muted small">Try another day above.</p>
+        {% else %}
+          {% for part, part_slots in (('Morning', morning), ('Afternoon', afternoon)) if part_slots %}
+            <h3 class="times-title">{{ part }}</h3>
+            {% if staff_view %}
+              <div class="table-scroll">
+                <table class="table times-table">
+                  <thead><tr><th scope="col">Starts</th><th scope="col">Ready by</th><th scope="col">Free mechanics</th><th scope="col">Free bays</th></tr></thead>
+                  <tbody>
+                    {% for slot in part_slots %}
+                      <tr>
+                        <th scope="row">{{ slot.start|slot_time }}</th>
+                        <td>{{ slot.ready|slot_time }}</td>
+                        <td>{{ slot.mechanics|map(attribute='name')|join(', ') }}</td>
+                        <td>{{ slot.bays|map(attribute='name')|join(', ') }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <ul class="time-grid">
+                {% for slot in part_slots %}
+                  <li class="time-chip"><strong>{{ slot.start|slot_time }}</strong><span class="muted small">ready about {{ slot.ready|slot_time }}</span></li>
+                {% endfor %}
+              </ul>
+            {% endif %}
+          {% endfor %}
+          {% if not staff_view %}
+            <p class="call-note">Online booking is coming soon.{% if shop.phone %} To book one of these times now, call <a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>.{% endif %}</p>
+          {% endif %}
+        {% endif %}
+      </section>
+    {% endif %}
+  {% endif %}
+{% endblock %}

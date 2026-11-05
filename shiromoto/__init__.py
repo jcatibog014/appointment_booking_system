@@ -64,13 +64,13 @@ def create_app(test_config=None):
 
     from . import auth, db, formatting, shops
     from .models import CLOSURE_LABELS, ROLE_LABELS, VEHICLE_LABELS, WEEKDAYS
-    from .views import desk, public, settings
+    from .views import book, desk, public, settings
 
     db.init_app(app)
     auth.init_app(app)
     formatting.init_app(app)
     # auth comes first: its before_request (load_user) must run before the others'.
-    for blueprint in (auth.bp, public.bp, desk.bp, settings.bp):
+    for blueprint in (auth.bp, public.bp, book.bp, desk.bp, settings.bp):
         app.register_blueprint(blueprint)
 
     app.jinja_env.globals.update(APP_NAME="ShiroMoto Garage", ROLE_LABELS=ROLE_LABELS,

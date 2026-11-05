@@ -38,6 +38,15 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
   - Everyone sees the shop's clock (`shops.timezone`, Asia/Manila). Convert with `dates.at(day, time)` / `to_local`.
   - Every time is on a 15-minute step (`forms.quarter_time`).
   - Service minutes are **working** minutes: breaks don't count, and a job pauses over lunch.
+- **Free times (`slots.py`)** work in minutes since midnight on the shop's clock, for one day.
+  - The pure functions (`subtract`, `intersect`, `overlaps`, `finish`, `free_slots`) take plain numbers, and the tests call them directly.
+  - `load_day()` reads the database once into a `DayPicture`: shop windows minus the break and part-day closures, each mechanic's windows (own hours, leave), and the active bays.
+  - Its `busy` argument (`{("bay", id) or ("mechanic", id): [(start, end)]}`) is where stage 3 plugs in the existing bookings.
+  - `day_choice()` adds the booking rules: the window from `bookable_days`, and minimum notice from `earliest_minute` (rounded up to the quarter hour).
+  - A visit is one bay and one mechanic: `need_for()` refuses services that need different bay types. The work adds up; the clean-up is the longest one, done once.
+  - The bay counts as taken over lunch (the car stays on the lift). Touching intervals don't overlap.
+  - Every "no times" result has a reason for the person; keep them specific.
+- **The Book page (`views/book.py`)** is GET-only, with every choice in the address. Staff see the same page as "Free Times", with the free mechanics and bays.
 - **Money** is whole centavos (int), read with `forms.pesos` and shown with the `peso` filter. Never use floats.
 - **Holidays:** `shops.ph_holidays(year)` works out Holy Week from `easter()` and National Heroes Day from `last_monday()`. Eid and Chinese New Year are added by hand.
 - **Migrations:** after changing `models.py`, run `upgrade-db`, then `.venv\Scripts\alembic revision --autogenerate --rev-id 00NN -m "what changed"` and check the file.

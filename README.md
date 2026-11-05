@@ -4,7 +4,7 @@
 
 I made this project to practice three skills: **date and time handling** (opening hours, lunch breaks, holidays and leave), **transactions** (a booking is saved all at once, or not at all) and **concurrency** (two people who press "Book" at the same second can't both get the last slot).
 
-It is built in 8 stages, one pull request each. This is **stage 1: the shop's setup**.
+It is built in 8 stages, one pull request each. Stage 1 set up the shop. This is **stage 2: free times**.
 
 ![The desk's Today page](docs/screenshots/today.png)
 
@@ -21,7 +21,30 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - A **service** says which kind of bay and which skill it needs, how long the work takes, and the clean-up time after it.
 - Work time skips the lunch break. A 3-hour job that starts at 10:00, with lunch from 12:00 to 1:00, ends at 2:00.
 
-## What It Can Do (Stage 1)
+## How Free Times Are Found (Stage 2)
+
+A time is free when **a mechanic with every skill** is working for the whole job **and a bay of the right kind** is empty for the whole job.
+
+```
+Shop hours        8:00 ─────────── 12:00   lunch   1:00 ──────────── 5:00
+Jun's hours       8:00 ─────────── 12:00           1:00 ──────────── 5:00
+Car PMS (3 h 15 min with clean-up), starting 10:00:
+                        10:00 ════ 12:00 (pause)   1:00 ═══ 2:15  ready
+```
+
+- Every time is in **minutes since midnight** on the shop's clock (8:30 AM is 510). The finder adds, subtracts and compares plain numbers. Only the final start becomes a real UTC moment.
+- **Work time skips breaks.** A job never starts during lunch, and it must finish before closing on the same day.
+- **Closures:** Sundays, holidays and whole-day closures give no times. A part-day closure (1:00 to 5:00 PM) cuts the afternoon.
+- **People:** a mechanic's own hours, days off and leave (a whole day, or only part of it) count too. Ana is off on Mondays, so on Mondays there are no Aircon times.
+- **Booking rules:** the minimum notice (2 hours: at 9:10 AM the first time is 11:15 AM), the furthest day (30 days ahead), and "today" means **Manila's** today. At 11:30 PM in UTC, Manila is already the next morning.
+- **Several services in one visit** add up their work time. The clean-up happens once, at the end. They must use the same kind of bay: a car is not moved from the lift to the alignment bay halfway through.
+- When a day has no times, the page says why: "Closed: Bonifacio Day", "No mechanic who does this works on this day", "The times left on this day are too soon to book"...
+
+**The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared. Online booking itself comes in stage 3. Until then the page shows the shop's phone number.
+
+**Free Times** (staff, in the menu): the same page, plus which mechanics and which bays are free at each time.
+
+## What It Could Already Do (Stage 1)
 
 **For customers**
 - The shop's page: services and prices for cars and for motorcycles, opening hours, today's status ("Open 8:00 AM to 5:00 PM" or "Closed: Bonifacio Day") and the closures in the next 30 days.
@@ -55,7 +78,6 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 
 | Stage | What it adds |
 |---|---|
-| 2 | Free times: shop hours, mechanic hours, breaks, holidays and leave together |
 | 3 | Booking with no double booking: holds, transactions, races, cancel and reschedule |
 | 4 | The front desk: day and week calendar, walk-ins, check-in |
 | 5 | Jobs: status, checklist and photos, estimates the customer approves, parts and stock |
@@ -73,6 +95,9 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 | ![Closures and leave](docs/screenshots/closures.png) Closures and leave | ![Bays](docs/screenshots/bays.png) Bays |
 | ![Services and prices](docs/screenshots/services.png) Services and prices | ![Staff](docs/screenshots/staff.png) Staff |
 | ![A mechanic's skills and hours](docs/screenshots/mechanic.png) A mechanic's skills and hours | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone |
+| ![Book: choose services](docs/screenshots/book-services.png) Book: choose services | ![Book: free times](docs/screenshots/book-times.png) Book: free times |
+| ![Free Times for staff](docs/screenshots/free-times.png) Free Times, for staff | ![Free Times in dark mode](docs/screenshots/free-times-dark.png) Free Times, dark mode |
+| ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone | |
 
 All people in these pictures are made up. They come from Try Demo.
 

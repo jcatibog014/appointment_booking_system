@@ -1,6 +1,6 @@
 # Plan: ShiroMoto Garage
 
-> Progress: **Stage 1 (setup and shop setup) is in PR #1.** Stages 2–8 are still to do. One PR per stage, with a stop for the owner's review after each one.
+> Progress: Stage 1 (setup and shop setup) was PR #1, merged. **Stage 2 (availability engine) is in PR #2.** Stages 3–8 are still to do. One PR per stage, with a stop for the owner's review after each one.
 
 
 ## Context
