@@ -99,7 +99,7 @@ Python 3.13 is at `%LOCALAPPDATA%\Programs\Python\Python313\python.exe`. Use the
 - **Look: "Garage night" with a purple accent** (the owner's choice).
   - The charcoal sidebar and public header (`--side-*`) look the same in both themes.
   - Off-white cards; the accent is `#7c3aed` (light) / `#a78bfa` (dark), never orange.
-  - Barlow Condensed (600/700, `static/fonts/`) for headings and the name.
+  - Saira Condensed (600/700) for headings, the name, prices and plates, and Inter (one variable file) for everything else, both in `static/fonts/` (the CSP allows only the site's own fonts). A new font file also goes in `sw.js`'s `KEEP` list.
   - A faint diamond-plate texture appears only on the login panel and empty states.
   - The logo is a hex nut on a solid tile (`mark()` in `_macros.html`; the nut takes the place's background colour via `--mark-nut`).
   - `tests/test_look.py` checks contrast and that both dark-mode blocks match. Dark mode is written twice in `style.css`: change both together.

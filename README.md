@@ -287,7 +287,8 @@ All people and vehicles in these pictures are made up. They come from Try Demo.
 | smtplib | Python's own library | Sends email through Gmail |
 | pytest | Test tool | Checks that everything works, with real threads for the races, and without going online |
 | Playwright | Browser tool | Takes the pictures for this page |
-| Barlow Condensed | Font | Headings and the name. The two small files are inside the app. |
+| Saira Condensed | Font | Headings, the shop's name, prices and plates. Its two small files are inside the app. |
+| Inter | Font | Everything else: one small file with every weight, inside the app. |
 | HTML, CSS, JavaScript, SVG | Languages | The pages and the charts. They also work without JavaScript. |
 | Service worker, Web Push | Browser features | The phone app: install, offline page, notifications |
 | Render | Hosting platform | Runs the live site |

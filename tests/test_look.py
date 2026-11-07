@@ -21,10 +21,24 @@ def test_every_file_the_stylesheet_loads_exists():
     assert [path for path in paths if not (STATIC / path).exists()] == []
 
 
-def test_the_pages_preload_the_heading_font(client):
+def test_the_pages_preload_both_fonts(client):
     page = client.get("/login").get_data(as_text=True)
-    preloaded = re.search(r'<link rel="preload" href="/static/(fonts/[^"]+)"', page).group(1)
-    assert f'url("{preloaded}")' in CSS
+    preloaded = re.findall(r'<link rel="preload" href="/static/(fonts/[^"]+)"', page)
+    assert preloaded == ["fonts/saira-condensed-700.woff2", "fonts/inter-variable.woff2"]
+    assert all(f'url("{path}")' in CSS for path in preloaded)
+
+
+def test_saira_condensed_for_headings_and_inter_for_the_rest():
+    theme = tokens(block(":root {"))
+    assert theme["--headline"].startswith('"Saira Condensed"') and theme["--ui"].startswith('"Inter"')
+    assert "Barlow" not in CSS
+
+
+def test_the_phone_app_keeps_every_font():
+    """The service worker keeps a copy of each font for offline use."""
+    kept = (STATIC / "sw.js").read_text(encoding="utf-8")
+    fonts = [path for path in re.findall(r'url\("([^"]+)"\)', CSS) if path.startswith("fonts/")]
+    assert fonts and all(f'"/static/{path}"' in kept for path in fonts)
 
 
 def test_both_dark_modes_say_the_same():
