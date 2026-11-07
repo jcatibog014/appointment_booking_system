@@ -42,6 +42,11 @@
                   <span class="pill line-pill-{{ line.status }}">{{ LINE_LABELS[line.status] }}</span>
                   {% if line.decided_by %}<span class="muted small">by {{ line.decided_by }}</span>{% endif %}
                 {% endif %}
+                {% if staff and line.status == 'proposed' %}
+                  <form method="post" action="{{ url_for('jobs.remove_line', job_id=job.id, line_id=line.id) }}" class="line-remove" data-confirm="Take “{{ line.description }}” off the estimate?">
+                    {{ csrf() }}<button class="link-button small" type="submit">Remove<span class="visually-hidden"> {{ line.description }}</span></button>
+                  </form>
+                {% endif %}
               </td>
             </tr>
           {% endfor %}

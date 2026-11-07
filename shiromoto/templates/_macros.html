@@ -13,7 +13,8 @@
 {# The Other Service's price, as a pill: staff and the customer each see it from their side. #}
 {% macro quote_pill(status, for_customer=False) -%}
   {%- set customer_labels = {'to_price': 'Being checked', 'priced': 'Price to confirm', 'accepted': 'Confirmed', 'declined': 'Declined'} -%}
-  <span class="pill {{ {'to_price': 'pill-urgent', 'priced': 'pill-calm', 'accepted': 'pill-booked', 'declined': 'pill-off'}[status] }}">{{ customer_labels[status] if for_customer else QUOTE_LABELS[status] }}</span>
+  {%- set colors = {'to_price': 'pill-calm', 'priced': 'pill-urgent'} if for_customer else {'to_price': 'pill-urgent', 'priced': 'pill-calm'} -%}
+  <span class="pill {{ colors.get(status) or {'accepted': 'pill-booked', 'declined': 'pill-off'}[status] }}">{{ customer_labels[status] if for_customer else QUOTE_LABELS[status] }}</span>
 {%- endmacro %}
 
 {# Small line icons (inline SVG, drawn with CSS: no inline styles). #}

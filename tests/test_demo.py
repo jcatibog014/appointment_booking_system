@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 
 from shiromoto import auth, db
 from shiromoto.dates import utcnow
-from shiromoto.models import Appointment, Bay, Customer, Job, Part, Service, Shop, User, Vehicle
+from shiromoto.models import Appointment, Bay, Customer, Job, Part, Service, Shop, User, Vehicle, WaitlistEntry
 
 from .conftest import CSRF, PASSWORD, find, post
 
@@ -274,3 +274,21 @@ def test_the_owners_pages_after_the_polish(app, demo):
     assert "tl-tick" in board and "Lunch break or closed" in board
     waitlist = demo.get("/desk/waitlist").get_data(as_text=True)
     assert "Offered a time" in waitlist and "data-drain" in waitlist  # Dan's offer, draining
+
+
+def test_the_other_roles_pages_after_the_polish(app, demo):
+    """Pills say who must act from the viewer's side, a mechanic removes a line on the
+    line itself, and the customer's waitlist offer drains too."""
+    shop_id = visitor(demo).shop_id
+    view_as(demo, person(app, shop_id, "mechanic"))
+    job = find(app, Job, Job.shop_id == shop_id, Job.status == "awaiting_approval")[0]
+    page = demo.get(f"/jobs/{job.id}").get_data(as_text=True)
+    assert 'class="line-remove"' in page and "The front desk can record a phone answer." in page
+    view_as(demo, person(app, shop_id, "customer"))
+    garage = demo.get("/garage").get_data(as_text=True)
+    assert "Waiting for your approval" in garage and "pill pill-urgent" in garage and "pill pill-calm" in garage
+    priced = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.quote_status == "priced")[0]
+    assert 'pill pill-urgent">Price to confirm' in demo.get(f"/b/{priced.ref}").get_data(as_text=True)
+    dan = find(app, WaitlistEntry, WaitlistEntry.shop_id == shop_id, WaitlistEntry.status == "offered")[0]
+    page = demo.get(f"/waitlist/{dan.token}").get_data(as_text=True)
+    assert "min left" in page and "data-drain" in page

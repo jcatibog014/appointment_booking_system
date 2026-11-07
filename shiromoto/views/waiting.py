@@ -74,7 +74,7 @@ def show(token):
         WaitlistEntry.shop_id == entry.shop_id, WaitlistEntry.status == WAITING,
         WaitlistEntry.created_at < entry.created_at).limit(1)) is not None
     return render_template("waitlist.html", entry=entry, services=waitlist.services_of(s, entry), ahead=ahead,
-                           public_page=True)
+                           now=utcnow(), offer_seconds=waitlist.OFFER_HOLD_MINUTES * 60, public_page=True)
 
 
 @bp.post("/waitlist/<token>/leave")

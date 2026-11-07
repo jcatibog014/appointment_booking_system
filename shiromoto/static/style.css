@@ -785,7 +785,7 @@ a.tl-block:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-
 .estimate tfoot th { color: var(--ink); background: none; font-size: .92rem; }
 .estimate tr.line-declined td { color: var(--ink-soft); }
 .estimate tr.line-declined strong { text-decoration: line-through; }
-.decide-form { display: flex; gap: .4rem; margin: 0; }
+.decide-form { display: inline-flex; gap: .4rem; margin: 0; vertical-align: middle; }
 .line-pill-approved { background: var(--ok-soft); color: var(--ok-ink); border-color: transparent; }
 .line-pill-declined { background: var(--surface-soft); color: var(--ink-soft); }
 .line-pill-proposed { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
@@ -851,3 +851,11 @@ g[data-tip]:hover .chart-bar { fill: var(--accent-hover); }
 .roomy-form { gap: 1.1rem; }
 .roomy-form .form-grid { row-gap: 1rem; }
 .low-stock li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1rem; padding: .35rem 0; }
+
+/* The customer's waitlist offer, and Remove on an estimate line. */
+.offer-left-wide { width: 100%; max-width: 22rem; height: .5rem; margin: 0 0 1rem; }
+.line-remove { display: inline-flex; margin-left: .4rem; vertical-align: middle; }
+.estimate td:last-child { white-space: nowrap; }
+.line-remove .link-button { color: var(--danger); }
+/* My Garage rows light up like table rows. */
+.row-list li:has(> .row-main > a.row-title):hover { background: var(--row-hover); box-shadow: 0 0 0 .5rem var(--row-hover); border-radius: 2px; }
