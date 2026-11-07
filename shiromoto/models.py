@@ -367,6 +367,8 @@ class Appointment(Base):
     # A move request (moves.py): the customer asks for a new time, and the shop decides.
     # The new time is held (holds.token = move_hold_token) until then.
     move_status: Mapped[str] = mapped_column(String(12), default="", server_default="", index=True)
+    # Who asked for the new time: "customer" (the shop answers) or "shop" (the customer answers).
+    move_by: Mapped[str] = mapped_column(String(12), default="customer", server_default="customer")
     move_hold_token: Mapped[str] = mapped_column(String(48), default="", server_default="")
     move_from_at: Mapped[datetime | None] = mapped_column(DateTime)  # the time it had when the customer asked
     move_starts_at: Mapped[datetime | None] = mapped_column(DateTime)  # the time they asked for

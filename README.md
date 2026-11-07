@@ -45,7 +45,7 @@ Service (Car PMS, 3 h)  ──needs──►  a kind of bay (Car lift)  +  a ski
 - **Services and prices:** time, clean-up, bay, skill and price. Prices are saved as whole centavos, never as decimals. Customers see each price as an estimate ("from ₱3,500"). The final price comes from the estimate they approve after the check.
 - **Staff:** invite a service advisor or mechanic with a one-time link, change roles, set skills and working hours, and switch off a login.
 
-## How Free Times Are Found
+## How Available Slots Are Found
 
 A time is free when **a mechanic with every skill** is working for the whole job **and a bay of the right kind** is empty for the whole job.
 
@@ -108,7 +108,7 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 **For staff:**
 - **Available Slots** shows what's still open, and **Book a walk-in or caller** books from it.
 - **Today** lists the day's bookings. A mechanic sees their own jobs.
-- Staff can open any booking, and can move or cancel it at any time. They also answer customers' move requests.
+- Staff can open any booking and cancel it at any time. To move it, they propose a new time and the customer accepts it (see below). They also answer customers' move requests.
 
 ## The Front Desk
 
@@ -136,7 +136,7 @@ Checked in → Inspecting → Waiting for approval → In progress → Ready for
 ```
 
 - **Check-in checklist:** fuel level, body, glass, lights, tires, warning lights and items left inside, plus **photos**. Every photo is made smaller and saved as WebP, and its hidden camera data (like the GPS position) is removed.
-- **Estimates:** the mechanic adds work or parts with a reason in plain words. The customer **approves or declines each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
+- **Estimates:** during the job, staff add **a service from the shop's list** (its name and price fill in), other work, or a part, with a reason in plain words. The job goes to **Waiting for approval**, and the customer gets a message listing each item and its price. They **approve or decline each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
 - **Only one decision counts.** A line changes only while it is still "waiting" (`UPDATE ... WHERE status = 'proposed'`). If the customer and the front desk press at the same moment, the second one is told it was already decided.
 - **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list.
 - **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
@@ -144,7 +144,17 @@ Checked in → Inspecting → Waiting for approval → In progress → Ready for
 
 ## Asking for a New Time
 
-A booked time can't be changed by the customer alone. They **ask**, and the owner, a service advisor or a mechanic **approves or declines**.
+A booked time never changes without both sides agreeing. Whoever wants the new time **asks**, and the other side **accepts or declines**.
+
+**When the shop needs to move a booking**, staff press **Propose another time** and pick one. Then:
+- the customer gets a message: "Can we move booking SM-...?", with the shop's note;
+- the new time is held for them, and **the booking stays where it is** until they answer;
+- they press **Accept the new time** or **Keep my time** on their booking (My Garage lists it under **Needs Your Answer**);
+- a customer with no email or account is called, and staff record the answer with **They said yes** or **They said no**;
+- if the customer already agreed on the phone or at the desk, **They agreed: move it now** moves it at once;
+- the desk and the booking's mechanic hear the answer. If nobody answers before the time runs out, the desk is told to call them.
+
+**When the customer wants a new time**, it works the other way round:
 
 1. On their booking, the customer presses **Ask for another time**, picks a day and time, adds a note if they like, and presses **Send the request**.
 2. **The new time is held for them** (up to a day, and never past its own start), so nobody else can book it while the shop decides. **The booking stays at its current time** until then. They can **withdraw** the request.
@@ -226,7 +236,8 @@ For the owner, over the last 7, 30 or 90 days:
 | ![The Other Service: write what you need](docs/screenshots/other-service.png) Other Service: write what you need | ![The customer confirms or declines the price](docs/screenshots/other-price.png) The customer confirms the price |
 | ![Sending the price, as staff](docs/screenshots/other-desk.png) Sending the price (staff) | ![The price on a phone, in dark mode](docs/screenshots/other-price-phone.png) The price on a phone, dark mode |
 | ![The customer's move request, waiting for the shop](docs/screenshots/move-ask.png) A move request, waiting for the shop | ![Staff approve or decline the new time](docs/screenshots/move-desk.png) Staff approve or decline it |
-| ![A mechanic answers a move request, in dark mode](docs/screenshots/move-desk-dark.png) A mechanic answers, dark mode | |
+| ![A mechanic answers a move request, in dark mode](docs/screenshots/move-desk-dark.png) A mechanic answers, dark mode | ![The shop asks the customer for a new time](docs/screenshots/move-proposed.png) The shop asks for a new time |
+| ![The desk waits for the customer's answer](docs/screenshots/move-proposed-desk.png) The desk waits for the customer | |
 | ![The shop's page on a phone](docs/screenshots/phone.png) On a phone | ![Free times on a phone](docs/screenshots/phone-times.png) Free times on a phone |
 | ![My Garage on a phone, in dark mode](docs/screenshots/garage-phone.png) My Garage on a phone, dark mode | |
 | ![The phone app settings on a phone](docs/screenshots/phone-app.png) The phone app | ![Make an account](docs/screenshots/signup.png) Make an account |

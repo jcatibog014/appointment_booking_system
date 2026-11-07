@@ -9,7 +9,7 @@ from flask import Blueprint, abort, flash, g, redirect, render_template, request
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from .. import db, forms, jobs, notices, photos, shops
+from .. import db, formatting, forms, jobs, notices, photos, shops
 from ..auth import roles_required, staff_required
 from ..booking import BookingError
 from ..dates import local_today, utcnow
@@ -68,6 +68,8 @@ def show(job_id):
     return render_template(
         "jobs/job.html", job=job, appointment=job.appointment, moves=jobs.MOVES[job.status],
         part_options=[(p.id, f"{p.name} ({p.stock} in stock)") for p in parts],
+        service_options=[(sv.id, f"{sv.name} (from {formatting.peso(sv.price_from)})")
+                         for sv in menu_services(s, job)],
         fuel_options=[(level, level) for level in FUEL_LEVELS], check_labels=CHECK_LABELS,
         decide_url=(lambda line: url_for("jobs.decide_for_customer", job_id=job.id, line_id=line.id))
         if g.user.role in (OWNER, ADVISOR) else None)
@@ -154,12 +156,29 @@ def photo(photo_id):
 
 # ---------- The estimate ----------
 
+def menu_services(s, job):
+    """The shop's services for this vehicle that can be added during the job (not the
+    Other Service: work that isn't on the list is written as labor)."""
+    return s.scalars(select(Service).where(
+        Service.shop_id == job.shop_id, Service.is_active.is_(True), Service.is_other.is_(False),
+        Service.vehicle_kind.in_((job.appointment.vehicle.kind, "any"))).order_by(Service.position)).all()
+
+
 @bp.post("/jobs/<int:job_id>/lines")
 @staff_required
 def add_line(job_id):
     job = shop_job(job_id)
     s = db.session()
     kind = request.form.get("kind")
+    service = None
+    if request.form.get("service_id"):
+        # A service from the menu: it's labor, named and priced like the menu says
+        # (the price can still be changed). The customer approves it like any line.
+        service = next((sv for sv in menu_services(s, job) if sv.id == request.form.get("service_id", type=int)),
+                       None)
+        if service is None:
+            abort(400)
+        kind = LABOR
     part = None
     if kind == PART and request.form.get("part_id"):
         part = s.get(Part, request.form.get("part_id", type=int) or 0)
@@ -168,13 +187,15 @@ def add_line(job_id):
     price, problem = forms.pesos(request.form, "unit_price")
     if not request.form.get("unit_price") and part is not None:
         price, problem = part.price, None
+    if not request.form.get("unit_price") and service is not None:
+        price, problem = service.price_from, None
     if problem:
         flash(problem, "error")
         return back_to(job)
     quantity = request.form.get("quantity", type=int) or 1
     def act(s):
-        jobs.add_line(s, job, kind, request.form.get("description", ""), request.form.get("reason", ""), quantity,
-                      price, utcnow(), part)
+        jobs.add_line(s, job, kind, request.form.get("description", "") or (service.name if service else ""),
+                      request.form.get("reason", ""), quantity, price, utcnow(), part)
         s.refresh(job)
         notices.safely(s, notices.estimate_waiting, shops.current(), job, utcnow())
     return attempt(job, act, "Added to the estimate. The customer can approve it from their booking page.")

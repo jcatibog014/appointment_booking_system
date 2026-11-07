@@ -72,6 +72,7 @@ def index():
     # The dashboard's top: what needs the customer's answer, and the next service due.
     answers = [("estimate", b) for b in in_shop if any(line.status == "proposed" for line in b.job.lines)]
     answers += [("price", b) for b in upcoming if b.quote_status == "priced"]
+    answers += [("move", b) for b in upcoming if b.move_by == "shop" and b.move_waiting(now)]
     coming_due = sorted(((due_day, name, vehicle) for vehicle in customer.vehicles
                          for name, _, _, due_day, _ in due[vehicle.id] if due_day), key=lambda item: item[0])
     return render_template("garage.html", customer=customer, upcoming=upcoming, past=past[:12], in_shop=in_shop,

@@ -56,10 +56,12 @@
   {# Everything customers are waiting on the shop for, in one list: new times and prices. #}
   {% if moves or requests %}
     {% set to_send = requests|selectattr('quote_status', 'equalto', 'to_price')|list|length %}
+    {% set proposed = moves|selectattr('move_by', 'equalto', 'shop')|list|length %}
     <section class="card table-card">
       <div class="card-head table-title">
         <h2>Needs an Answer</h2>
-        <span class="muted small">{{ moves|length + to_send }} for the shop{% if requests|length - to_send %} · {{ requests|length - to_send }} waiting for the customer{% endif %}</span>
+        {% set for_customer = requests|length - to_send + proposed %}
+        <span class="muted small">{{ moves|length - proposed + to_send }} for the shop{% if for_customer %} · {{ for_customer }} waiting for the customer{% endif %}</span>
       </div>
       <div class="table-scroll">
         <table class="table">
@@ -67,10 +69,10 @@
           <tbody>
             {% for item in moves %}
               <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">
-                <td><a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">New time</a></td>
+                <td><a class="pill {{ 'pill-no_show' if item.move_by == 'shop' else 'job-awaiting_approval' }}" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ 'New time sent' if item.move_by == 'shop' else 'New time' }}</a></td>
                 <td>{{ item.customer.name }}</td>
                 <td>{{ item.vehicle.label }}</td>
-                <td>Asks for <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong></td>
+                <td>{% if item.move_by == 'shop' %}You proposed <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong>; waiting for them{% else %}Asks for <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong>{% endif %}</td>
                 <td class="muted">{{ item.starts_at|local_moment(shop.timezone) }}</td>
               </tr>
             {% endfor %}

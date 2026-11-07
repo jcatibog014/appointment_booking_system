@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from shiromoto import booking, db, jobs, photos, seed
 from shiromoto.models import ADVISOR, APPROVED, AWAITING, CHECKED, DECLINED, INSPECTING, LABOR, MECHANIC, PART, \
-    PROPOSED, READY, RELEASED, WAITING_PARTS, WORKING, Appointment, EstimateLine, Job, Part, Service, Shop, Skill, \
+    PROPOSED, READY, RELEASED, WAITING_PARTS, WORKING, Appointment, EstimateLine, Job, Notification, Part, Service, Shop, Skill, \
     StockMove, User
 
 from .conftest import CSRF, find, log_in_as, make_user, post
@@ -252,7 +252,7 @@ def test_the_board_and_the_job_page(app, setup):
     board = desk.get("/desk/jobs").get_data(as_text=True)
     assert "Checked in" in board and "ABC 1234" in board
     page = desk.get(f"/jobs/{setup['job']}").get_data(as_text=True)
-    assert "Check-in Checklist" in page and "Add work or a part" in page and "Inspecting" in page
+    assert "Check-in Checklist" in page and "Add a service, work or a part" in page and "Inspecting" in page
     post(desk, f"/jobs/{setup['job']}/move", {"status": "inspecting", "version": 1})
     assert find(app, Job, Job.id == setup["job"])[0].status == INSPECTING
 
@@ -314,3 +314,29 @@ def test_the_vehicle_page(app, setup):
         vehicle_id = db.session().get(Job, setup["job"]).appointment.vehicle_id
     page = setup["desk"].get(f"/desk/vehicles/{vehicle_id}").get_data(as_text=True)
     assert "Car Oil Change" in page and "45,000 km" in page and "Visits" in page
+
+
+def test_a_service_from_the_list_is_added_for_the_customer_to_approve(app, setup):
+    """During the job, staff add a service from the menu. It's named and priced like the
+    menu, the job waits for approval, and the customer gets a message with the price."""
+    desk = setup["desk"]
+    post(desk, f"/jobs/{setup['job']}/move", {"status": "inspecting", "version": 1})
+    with app.app_context():
+        brakes = db.session().scalar(select(Service).where(Service.name == "Brake Service"))
+        brakes_id = brakes.id
+    page = desk.get(f"/jobs/{setup['job']}").get_data(as_text=True)
+    assert "A service from our list" in page and "Brake Service (from ₱2,500)" in page
+    assert "Other Car Service" not in page and "Motorcycle PMS" not in page  # only this vehicle's real services
+    with app.test_request_context():
+        visit = db.session().scalar(select(Appointment).where(Appointment.ref == setup["ref"]))
+        visit.customer.email = "carlo@example.com"
+        db.session().commit()
+    post(desk, f"/jobs/{setup['job']}/lines", {"service_id": brakes_id, "reason": "The pads are thin.",
+                                                "quantity": "1", "unit_price": ""})
+    [line] = find(app, EstimateLine)
+    assert line.description == "Brake Service" and line.unit_price == 250000 and line.status == PROPOSED
+    assert find(app, Job, Job.id == setup["job"])[0].status == AWAITING
+    with app.app_context():
+        notice = db.session().scalar(select(Notification).where(Notification.kind == "estimate",
+                                                                Notification.channel == "email"))
+        assert "Brake Service (₱2,500)" in notice.body and "approve or decline" in notice.body

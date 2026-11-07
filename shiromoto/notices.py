@@ -192,7 +192,38 @@ def move_declined(s, shop, appointment, now):
                  dedupe=f"move-no:{appointment.id}:{appointment.version}")
 
 
+def move_proposed(s, shop, appointment, now):
+    """The shop wants a new time: the customer accepts or declines it from their link."""
+    for_customer(s, shop, appointment, "move_proposed", f"Can we move booking {appointment.ref}?",
+                 f"Hi {appointment.customer.name.split()[0]}, {shop.name} asks to move your booking from "
+                 f"{when(appointment, shop)} to {at_time(appointment.move_starts_at, shop)}."
+                 + (f" {appointment.move_note}" if appointment.move_note else "")
+                 + " Please open the link to accept the new time or keep yours. Nothing changes until you answer.",
+                 now, dedupe=f"move-shop:{appointment.id}:{appointment.version}")
+
+
+def move_answered(s, shop, appointment, now):
+    """The customer answered the shop's new time: tell the desk and the booking's mechanic."""
+    yes = appointment.move_status == "approved"
+    subject = f"New time {'accepted' if yes else 'declined'}: {appointment.vehicle.plate}"
+    body = (f"{appointment.customer.name} {'accepted' if yes else 'declined'} "
+            f"{at_time(appointment.move_starts_at, shop)} for booking {appointment.ref}. "
+            + (f"It is now on {when(appointment, shop)}." if yes else f"It stays on {when(appointment, shop)}.")
+            + (f" Their note: “{appointment.move_reply}”" if appointment.move_reply else ""))
+    link = url_for("bookings.show", ref=appointment.ref, _external=True) + "#move-request"
+    dedupe = f"move-reply:{appointment.id}:{appointment.version}"
+    to_staff(s, shop, "move_answer", subject, body, link, dedupe, now)
+    if appointment.mechanic.role == "mechanic":
+        queue(s, shop, "move_answer", subject, body, link, f"{dedupe}:m", now, user=appointment.mechanic)
+
+
 def move_expired(s, shop, appointment, now):
+    if appointment.move_by == "shop":  # the customer didn't answer the shop: the desk needs to know
+        to_staff(s, shop, "move_expired", f"No answer about the new time: {appointment.vehicle.plate}",
+                 f"{appointment.customer.name} didn't answer about {at_time(appointment.move_starts_at, shop)}, "
+                 f"so booking {appointment.ref} stays on {when(appointment, shop)}. You may want to call them.",
+                 url_for("bookings.show", ref=appointment.ref, _external=True), f"move-out:{appointment.id}", now)
+        return
     for_customer(s, shop, appointment, "move_expired", f"Your move request for {appointment.ref} ran out",
                  f"The shop couldn't answer before the time you asked for was given back. Your booking stays on "
                  f"{when(appointment, shop)}. You can ask for another time from the link.", now,
@@ -204,9 +235,10 @@ def estimate_waiting(s, shop, job, now):
     if not waiting:
         return
     visit = job.appointment
+    listed = "; ".join(f"{line.description} ({peso(line.amount)})" for line in waiting)
     for_customer(s, shop, visit, "estimate", f"Please approve: {waiting[0].description}",
-                 f"Our mechanic found something on {visit.vehicle.plate}. Please look at the estimate and approve "
-                 "or decline each line. We only do what you approve.", now,
+                 f"Our mechanic would like to add work on {visit.vehicle.plate}: {listed}. Please open the link "
+                 "to approve or decline each one. We only do what you approve.", now,
                  dedupe=f"estimate:{job.id}:{waiting[-1].id}")
 
 

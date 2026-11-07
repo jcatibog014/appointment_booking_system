@@ -1,13 +1,16 @@
 {% extends "base.html" %}
-{% from "_macros.html" import back, csrf %}
-{% from "_macros.html" import textarea %}
-{% block title %}{{ 'Move Booking ' ~ appointment.ref if staff_view else 'Ask for a New Time' }} - {{ shop.name }}{% endblock %}
+{% from "_macros.html" import back, csrf, textarea %}
+{% block title %}{{ 'Propose a New Time' if staff_view else 'Ask for a New Time' }} - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="narrow">
     {{ back(url_for('book.index', move=appointment.ref, day=day.isoformat()), 'Other times') }}
     <div class="page-head">
-      <h1>{{ 'Move Booking ' ~ appointment.ref ~ '?' if staff_view else 'Ask for This New Time?' }}</h1>
-      {% if not staff_view %}<p class="page-sub">The owner, a service advisor or your mechanic confirms it. We keep the new time for you until they answer (up to a day). Until then, your booking stays at its current time.</p>{% endif %}
+      <h1>{{ 'Propose This New Time?' if staff_view else 'Ask for This New Time?' }}</h1>
+      {% if staff_view %}
+        <p class="page-sub">{{ appointment.customer.name }} has to agree first. We send them the new time to accept or decline, and keep it for them until they answer (up to a day, and never past the booking's start). Until then, booking {{ appointment.ref }} stays at its current time.</p>
+      {% else %}
+        <p class="page-sub">The owner, a service advisor or your mechanic confirms it. We keep the new time for you until they answer (up to a day). Until then, your booking stays at its current time.</p>
+      {% endif %}
     </div>
     <section class="card move-compare">
       <div>
@@ -20,18 +23,30 @@
         <p class="held-when">{{ day|day }}, {{ start|slot_time }}</p>
       </div>
     </section>
-    <form method="post" class="{{ 'form-actions' if staff_view else 'card stack' }}">
+    <form method="post" class="card stack">
       {{ csrf() }}
-      {% if not staff_view %}
-        {{ textarea('note', 'Note for the shop', hint='Optional: why the new time suits you better', rows=2, attrs='maxlength="300"') }}
-        <div class="form-actions">
-      {% endif %}
       <input type="hidden" name="day" value="{{ day.isoformat() }}">
       <input type="hidden" name="start" value="{{ start }}">
       <input type="hidden" name="version" value="{{ appointment.version }}">
-      <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Keep the current time</a>
-      <button class="button" type="submit">{{ 'Move the booking' if staff_view else 'Send the request' }}</button>
-      {% if not staff_view %}</div>{% endif %}
+      {% if staff_view %}
+        {{ textarea('note', 'Note for the customer', hint='Why the shop needs the new time, like "Our lift is being repaired that morning"', rows=2, attrs='maxlength="300"') }}
+        {% if not reachable %}<p class="call-note">{{ appointment.customer.name }} has no email or account, so they won't get a message. Call them on <a href="tel:{{ appointment.customer.phone_key }}">{{ appointment.customer.phone }}</a>, then record their answer on the booking.</p>{% endif %}
+        <div class="form-actions">
+          <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Keep the current time</a>
+          <button class="button" type="submit">Ask {{ appointment.customer.name.split()[0] }} to confirm</button>
+        </div>
+        <details class="agreed-details">
+          <summary>They already agreed (on the phone or at the desk)</summary>
+          <p class="small">Only if {{ appointment.customer.name }} said yes to this exact time. The booking moves now, and they get a message.</p>
+          <button class="button button-quiet" type="submit" name="agreed" value="yes">They agreed: move it now</button>
+        </details>
+      {% else %}
+        {{ textarea('note', 'Note for the shop', hint='Optional: why the new time suits you better', rows=2, attrs='maxlength="300"') }}
+        <div class="form-actions">
+          <a class="button button-quiet" href="{{ url_for('bookings.show', ref=appointment.ref) }}">Keep the current time</a>
+          <button class="button" type="submit">Send the request</button>
+        </div>
+      {% endif %}
     </form>
   </div>
 {% endblock %}
