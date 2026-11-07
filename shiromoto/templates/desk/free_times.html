@@ -51,7 +51,7 @@
                     <span class="pill pill-off">{{ row.off }}</span>
                   {% elif windows %}
                     <ul class="free-list">
-                      {% for start, end in windows %}<li class="free-chip">{{ start|slot_time }} – {{ end|slot_time }}</li>{% endfor %}
+                      {% for start, end in windows %}<li>{% if can_book %}<a class="free-chip" href="{{ url_for('book.index', day=day.isoformat()) }}" title="Book a walk-in or caller on this day">{{ start|slot_time }} – {{ end|slot_time }}</a>{% else %}<span class="free-chip">{{ start|slot_time }} – {{ end|slot_time }}</span>{% endif %}</li>{% endfor %}
                     </ul>
                   {% else %}
                     <span class="muted small">{{ 'Nothing left today' if day == today else 'Fully booked' }}</span>

@@ -99,7 +99,7 @@
       <section class="card move-card" id="move-request">
         <div class="card-head">
           <h2>{% if shop_asked %}{{ 'New Time for the Customer' if staff_view else 'The Shop Asks for a New Time' }}{% else %}{{ 'Move Request' if staff_view else 'Your Move Request' }}{% endif %}</h2>
-          {% if move_waiting %}<span class="pill job-awaiting_approval">{{ ('Waiting for the customer' if staff_view else 'Waiting for the shop') if asked_by_me else 'To answer' }}</span>
+          {% if move_waiting %}<span class="pill {{ 'pill-calm' if asked_by_me else 'pill-urgent' }}">{{ ('Waiting for the customer' if staff_view else 'Waiting for the shop') if asked_by_me else 'To answer' }}</span>
           {% elif move == 'approved' %}<span class="pill pill-booked">Accepted</span>
           {% elif move == 'declined' %}<span class="pill pill-off">Declined</span>
           {% else %}<span class="pill pill-off">Ran out</span>{% endif %}

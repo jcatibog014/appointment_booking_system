@@ -24,6 +24,7 @@
         {% for row in board.rows %}
           <div class="tl-row" role="row">
             <span class="tl-name" role="rowheader"><strong>{{ row.name }}</strong><span class="muted small">{{ row.detail }}</span></span>
+            {% for label, gs, ge in board.hours %}<span class="tl-tick gs-{{ gs }} ge-{{ gs + 1 }}" aria-hidden="true"></span>{% endfor %}
             {% if board.now_column %}<span class="tl-now gs-{{ board.now_column }} ge-{{ board.now_column + 1 }}" aria-hidden="true"></span>{% endif %}
             {% for block in row.blocks %}
               {% if block.kind == 'break' %}
@@ -50,7 +51,7 @@
       <span class="key key-checked_in"></span> Checked in
       <span class="key key-no_show"></span> No-show
       <span class="key key-hold"></span> Being booked
-      <span class="key key-break"></span> Break or closed
+      <span class="key key-break"></span> Lunch break or closed: no bookings
     </p>
   {% endif %}
 {% endmacro %}

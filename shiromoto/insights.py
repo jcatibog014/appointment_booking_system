@@ -76,8 +76,15 @@ def columns(labels, values, texts, width=640, height=180, gap=2):
                   width=max(slot - gap, 1), height=bar_height, labelled=n == biggest and value > 0)
         bar.path = column_path(bar.x, bar.y, bar.width, bar.height) if value else ""
         bars.append(bar)
-    ticks = [(height - height * f, f"{top * f:g}") for f in (0, .5, 1)]
+    ticks = [(height - height * v / top, f"{v:g}") for v in count_ticks(top)]
     return bars, ticks
+
+
+def count_ticks(top):
+    """Grid lines for counts: whole numbers, at most 6 lines, so a bar of 4 meets the "4" line.
+    5 -> 0 1 2 3 4 5; 10 -> 0 2 4 6 8 10; 25 -> 0 5 10 15 20 25."""
+    every = next(n for n in (1, 2, 5, 10, 20, 25, 50, 100, 250, 500, 1000, 10_000) if top / n <= 5)
+    return [k * every for k in range(int(top // every) + 1)]
 
 
 def rows(labels, values, texts, width=300, row_height=26, gap=2):

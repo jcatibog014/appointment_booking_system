@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% from "_macros.html" import service_price %}
+{% from "_macros.html" import icon, service_price %}
 {% block title %}{{ shop.name }} - Car and Motorcycle Service{% endblock %}
 {% block page_class %}home{% endblock %}
 {% block content %}
@@ -25,7 +25,7 @@
       {% else %}
         <p class="status status-closed">Closed today</p>
       {% endif %}
-      {% if shop.address %}<p class="small">{{ shop.address }}</p>{% endif %}
+      {% if shop.address %}<p class="small"><a class="map-link" href="https://www.google.com/maps/search/?api=1&amp;query={{ (shop.name ~ ', ' ~ shop.address)|urlencode }}" target="_blank" rel="noopener">{{ icon('pin') }}<span>{{ shop.address }}</span></a></p>{% endif %}
     </div>
   </section>
 
@@ -51,7 +51,7 @@
                     <div class="price-figure">
                       <span class="price">{{ service_price(service) }}</span>
                       {% if not service.is_other %}<span class="muted small">about {{ service.work_minutes|duration }}</span>{% endif %}
-                      <a class="small" href="{{ url_for('book.index', vehicle=kind, service=service.id) }}">Book<span class="visually-hidden"> {{ service.name }}</span></a>
+                      <a class="button button-small button-quiet" href="{{ url_for('book.index', vehicle=kind, service=service.id) }}">Book<span class="visually-hidden"> {{ service.name }}</span></a>
                     </div>
                   </li>
                 {% endfor %}

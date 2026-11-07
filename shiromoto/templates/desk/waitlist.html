@@ -20,7 +20,9 @@
                 <td>{{ VEHICLE_LABELS[row.vehicle_kind] }}: {{ services[row.id]|map(attribute='name')|join(' + ') }}</td>
                 <td>{{ row.first_day|day_range(row.last_day) }}</td>
                 <td class="num">{{ row.offers }}</td>
-                <td><span class="pill wait-{{ row.status }}">{{ WAITLIST_LABELS[row.status] }}</span>{% if row.status == 'offered' %} <span class="muted small">until {{ row.offer_expires_at|local_time(shop.timezone) }}</span>{% endif %}</td>
+                <td><span class="pill wait-{{ row.status }}">{{ WAITLIST_LABELS[row.status] }}</span>{% if row.status == 'offered' %} <span class="muted small">until {{ row.offer_expires_at|local_time(shop.timezone) }}</span>
+                  {% set left = [((row.offer_expires_at - now).total_seconds())|int, 0]|max %}
+                  <progress class="offer-left" max="{{ offer_seconds }}" value="{{ left }}" data-drain aria-label="Time left on the offer">{{ left // 60 }} min left</progress>{% endif %}</td>
               </tr>
             {% endfor %}
           </tbody>

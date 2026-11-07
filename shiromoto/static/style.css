@@ -29,6 +29,10 @@
   --ok-soft: #e1f5ea;
   --warning-ink: #8a4b06;
   --warning-soft: #fdf1df;
+  --info-ink: #1d5fa8;  /* calm: waiting for someone else */
+  --info-soft: #e4eefb;
+  --scroll-thumb: #c9bdf0;
+  --scroll-thumb-hover: #a78bfa;
   --shadow: 0 1px 2px rgb(20 16 40 / .06), 0 1px 3px rgb(20 16 40 / .08);
   /* The charcoal parts look the same in both themes: the garage at night. */
   --side-bg: #16151c;
@@ -79,6 +83,10 @@
     --ok-soft: #143524;
     --warning-ink: #fbbf5a;
     --warning-soft: #3a2a12;
+    --info-ink: #8cc4ff;
+    --info-soft: #13263d;
+    --scroll-thumb: #4a3f6b;
+    --scroll-thumb-hover: #7c5fd6;
     --shadow: 0 1px 2px rgb(0 0 0 / .35);
     --side-bg: #0d0c11;
     --side-hover: #1d1b24;
@@ -116,6 +124,10 @@
   --ok-soft: #143524;
   --warning-ink: #fbbf5a;
   --warning-soft: #3a2a12;
+  --info-ink: #8cc4ff;
+  --info-soft: #13263d;
+  --scroll-thumb: #4a3f6b;
+  --scroll-thumb-hover: #7c5fd6;
   --shadow: 0 1px 2px rgb(0 0 0 / .35);
   --side-bg: #0d0c11;
   --side-hover: #1d1b24;
@@ -131,7 +143,12 @@
 }
 
 /* Wide screens: everything is in rem, so it grows with these steps. */
-html { font-size: 16px; scrollbar-color: var(--rule-strong) var(--bg); }
+html { font-size: 16px; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--bg); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border-radius: 999px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+::placeholder { color: var(--ink-soft); opacity: 1; }
 @media (min-width: 1600px) { html { font-size: 17px; } }
 @media (min-width: 1920px) { html { font-size: 18px; } }
 @media (min-width: 2300px) { html { font-size: 19px; } }
@@ -218,10 +235,13 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 @media (max-width: 47.99rem) { .js .flashes { right: 1rem; left: 1rem; bottom: 1rem; width: auto; } }
 
 /* The demo's bar: one thin line, with View As at its end. */
-.demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1rem; margin: -.75rem 0 1.25rem; padding: .3rem .4rem .3rem .9rem; border-radius: var(--radius-small); background: var(--accent-soft); color: var(--ink); font-size: .88rem; }
+.demo-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .3rem 1rem; margin: -.75rem 0 1.25rem; padding: .15rem .3rem .15rem .8rem; border-radius: var(--radius-small); background: var(--surface-soft); border: 1px dashed var(--rule-strong); color: var(--ink-soft); font-size: .84rem; }
+.demo-bar strong { color: var(--ink); }
 .demo-bar p { margin: 0; }
 .view-as { display: flex; align-items: center; gap: .5rem; margin: 0; }
-.view-as label { font-weight: 600; }
+.view-as label { display: inline-flex; align-items: center; gap: .35rem; font-weight: 600; color: var(--ink); }
+.icon { width: 1rem; height: 1rem; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -.15em; }
+.view-as .icon { color: var(--accent); }
 .view-as select { min-height: 2rem; padding: .15rem .5rem; background: var(--surface); color: var(--ink); border: 1px solid var(--rule-strong); border-radius: var(--radius-small); font: inherit; max-width: 16rem; }
 
 /* ---------- Cards ---------- */
@@ -314,6 +334,11 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 /* ---------- Pills and tags ---------- */
 
 .pill { display: inline-flex; align-items: center; padding: .05rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; line-height: 1.6; white-space: nowrap; background: var(--surface-soft); color: var(--ink-soft); border: 1px solid var(--rule); }
+a.pill { text-decoration: none; }
+a.pill:hover { box-shadow: 0 0 0 2px currentColor; text-decoration: none; }
+/* After .pill, so they win: urgent = the shop must act; calm = waiting for the customer. */
+.pill-urgent { background: var(--danger-soft); color: var(--danger); border-color: transparent; }
+.pill-calm { background: var(--info-soft); color: var(--info-ink); border-color: transparent; }
 .pill-owner { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .pill-advisor { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
 .pill-mechanic { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
@@ -512,7 +537,7 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 
 .table-card { padding: 0; overflow: hidden; }
 .table-title { padding: 1rem 1.5rem 0; margin: 0 0 .75rem; }
-.table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+.table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) transparent; }
 .table { width: 100%; border-collapse: collapse; font-size: .95rem; }
 .table th { text-align: left; font-size: .8rem; font-weight: 600; color: var(--ink-soft); padding: .7rem 1rem; background: var(--surface-soft); border-bottom: 1px solid var(--rule); white-space: nowrap; }
 .table tbody th { font-size: .95rem; color: var(--ink); background: none; }
@@ -520,7 +545,14 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .table tbody tr:last-child td, .table tbody tr:last-child th { border-bottom: 0; }
 .table tbody tr:hover td, .table tbody tr:hover th { background: var(--row-hover); }
 .table tbody tr[data-href] { cursor: pointer; }  /* app.js opens the row's page on a click anywhere */
+.table tbody tr[data-href]:hover td { background: var(--row-hover); }
 .table tbody tr[data-href]:hover td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.table a.row-title { color: var(--accent); }
+.table tr.is-cancelled td { color: var(--ink-soft); }
+.table tr.is-cancelled .row-title, .table tr.is-cancelled .struck { text-decoration: line-through; }
+.table tr.is-cancelled .pill { background: var(--surface-soft); color: var(--ink-soft); border-color: var(--rule); }
+.plate-list { display: flex; flex-wrap: wrap; gap: .3rem; margin: 0; padding: 0; list-style: none; }
+.plate { display: inline-block; padding: 0 .45rem; border: 1px solid var(--rule-strong); border-radius: 4px; font-family: var(--headline); font-weight: 600; letter-spacing: .04em; white-space: nowrap; }
 .table .num { text-align: right; white-space: nowrap; }
 .table tr.is-off td { color: var(--ink-soft); }
 .week-table .time-cell { min-width: 8rem; }
@@ -550,7 +582,8 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .service-pick input { width: 1.15rem; height: 1.15rem; margin: .2rem 0 0; accent-color: var(--accent); }
 .service-pick-text, .service-pick-figure { display: flex; flex-direction: column; min-width: 0; }
 .service-pick-figure { align-items: flex-end; text-align: right; }
-.price-figure a { margin-top: .1rem; }
+.price-figure a { margin-top: .35rem; }
+.price-figure .button-small { padding: .15rem .8rem; }
 .visit-summary { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 2rem; }
 .visit-lines { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1rem; flex: 1; min-width: 14rem; }
 .visit-services { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin: 0; padding: 0; list-style: none; font-weight: 600; }
@@ -632,6 +665,7 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .cancel-details[open] summary { margin-bottom: .75rem; }
 /* My Garage, as a dashboard. */
 .stat-value-small { font-size: 1.35rem; }
+.stat-value-big { font-size: 2.6rem; color: var(--accent); }
 .stat-value-small a { color: inherit; text-decoration: none; }
 .stat-value-small a:hover { text-decoration: underline; }
 .to-answer { border-left: 4px solid var(--accent); }
@@ -648,7 +682,9 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 /* Free Times: what's left of each day. */
 .free-table th[scope="row"] { display: flex; flex-direction: column; min-width: 10rem; font-weight: 400; }
 .free-list { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; list-style: none; }
-.free-chip { padding: .2rem .6rem; border-radius: var(--radius-small); background: var(--ok-soft, var(--accent-soft)); color: var(--ok-ink, var(--ink)); font-weight: 600; font-size: .9rem; white-space: nowrap; }
+a.free-chip { text-decoration: none; }
+a.free-chip:hover { box-shadow: 0 0 0 2px var(--ok-ink); }
+.free-chip { display: inline-block; padding: .2rem .6rem; border-radius: var(--radius-small); background: var(--ok-soft, var(--accent-soft)); color: var(--ok-ink, var(--ink)); font-weight: 600; font-size: .9rem; white-space: nowrap; }
 .move-compare-small .held-when { font-size: 1.15rem; }
 .move-compare-small .move-arrow { font-size: 1.5rem; }
 .move-card .actions { margin-top: .25rem; }
@@ -670,8 +706,9 @@ html:not(.js) .welcome-layout .flashes { position: absolute; top: 1rem; right: 1
 .tl-end { visibility: hidden; }
 .tl-break { background: repeating-linear-gradient(135deg, var(--surface-soft) 0 6px, var(--rule) 6px 7px); border-radius: 4px; }
 .tl-now { border-left: 2px solid var(--danger); z-index: 3; pointer-events: none; }
+.tl-tick { border-left: 1px dashed var(--rule); pointer-events: none; }  /* where each hour starts */
 .tl-row:not(.tl-head) { background: linear-gradient(var(--surface-soft), var(--surface-soft)) no-repeat; background-size: calc(100% - 9.5rem) 100%; background-position: right; border-radius: 4px; }
-.tl-block { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; min-width: 0; margin: .15rem 1px; padding: .2rem .45rem; border-radius: 5px; font-size: .78rem; line-height: 1.25; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-decoration: none; color: var(--ink); }
+.tl-block { position: relative; z-index: 2; display: flex; flex-direction: column; justify-content: center; min-width: 0; margin: .15rem 1px; padding: .25rem .5rem; border-radius: 8px; box-shadow: var(--shadow); font-size: .86rem; line-height: 1.25; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-decoration: none; color: var(--ink); }
 .tl-block strong, .tl-block span { overflow: hidden; text-overflow: ellipsis; }
 a.tl-block:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-decoration: none; }
 .tl-booked { background: var(--accent-soft); border-left: 3px solid var(--accent); }
@@ -726,7 +763,8 @@ a.tl-block:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-
 .job-column-ready { border-top-color: var(--ok-ink); }
 .job-card { display: flex; flex-direction: column; gap: .1rem; padding: .65rem .75rem; background: var(--surface); border: 1px solid var(--rule); border-radius: var(--radius-small); box-shadow: var(--shadow); color: var(--ink); text-decoration: none; }
 .job-card:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-decoration: none; }
-.job-card strong { font-family: var(--headline); font-size: 1.15rem; letter-spacing: .03em; }
+.job-card strong { font-family: var(--headline); font-size: 1.35rem; font-weight: 700; letter-spacing: .04em; }
+.job-empty { margin: 0; padding: 1rem .5rem; border: 1px dashed var(--rule-strong); border-radius: var(--radius-small); color: var(--ink-soft); font-size: .88rem; text-align: center; }
 .job-card .pill { align-self: flex-start; margin-top: .3rem; }
 .pill.job-checked_in, .pill.job-inspecting, .pill.job-in_progress { background: var(--accent-soft); color: var(--accent-strong); border-color: transparent; }
 .pill.job-awaiting_approval, .pill.job-waiting_parts { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
@@ -747,7 +785,7 @@ a.tl-block:hover { box-shadow: 0 0 0 2px var(--accent); color: var(--ink); text-
 .estimate tfoot th { color: var(--ink); background: none; font-size: .92rem; }
 .estimate tr.line-declined td { color: var(--ink-soft); }
 .estimate tr.line-declined strong { text-decoration: line-through; }
-.decide-form { display: flex; gap: .4rem; margin: 0; }
+.decide-form { display: inline-flex; gap: .4rem; margin: 0; vertical-align: middle; }
 .line-pill-approved { background: var(--ok-soft); color: var(--ok-ink); border-color: transparent; }
 .line-pill-declined { background: var(--surface-soft); color: var(--ink-soft); }
 .line-pill-proposed { background: var(--warning-soft); color: var(--warning-ink); border-color: transparent; }
@@ -784,7 +822,7 @@ details summary { cursor: pointer; }
 .chart-columns { max-height: 17rem; }
 .chart-bar { fill: var(--chart); }
 .chart-track { fill: var(--chart-track); }
-.chart-grid { stroke: var(--rule); stroke-width: 1; }
+.chart-grid { stroke: var(--rule-strong); stroke-width: 1; stroke-dasharray: 3 4; }
 .chart-tick { fill: var(--ink-soft); font-size: 11px; }
 .chart-label { fill: var(--ink); font-size: 12px; }
 .chart-rows .chart-label, .chart-rows .chart-value { font-size: 15px; }
@@ -804,3 +842,20 @@ g[data-tip]:hover .chart-bar { fill: var(--accent-hover); }
 .table-view { margin-top: .75rem; }
 .table-view summary { font-size: .88rem; color: var(--accent); margin-bottom: .5rem; }
 .chart-tip { position: fixed; z-index: 60; pointer-events: none; padding: .35rem .6rem; border-radius: var(--radius-small); background: var(--side-bg); color: var(--side-ink); font-size: .85rem; box-shadow: 0 .25rem 1rem rgb(0 0 0 / .25); white-space: nowrap; }
+
+/* The waitlist: an offer's 30 minutes, draining. app.js counts it down. */
+.offer-left { display: block; width: 8rem; height: .4rem; margin-top: .25rem; accent-color: var(--warning-ink); }
+.map-link { display: inline-flex; align-items: center; gap: .3rem; }
+.next-closure { display: flex; align-items: flex-start; gap: .35rem; }
+.next-closure .icon { margin-top: .15rem; color: var(--accent); }
+.roomy-form { gap: 1.1rem; }
+.roomy-form .form-grid { row-gap: 1rem; }
+.low-stock li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .4rem 1rem; padding: .35rem 0; }
+
+/* The customer's waitlist offer, and Remove on an estimate line. */
+.offer-left-wide { width: 100%; max-width: 22rem; height: .5rem; margin: 0 0 1rem; }
+.line-remove { display: inline-flex; margin-left: .4rem; vertical-align: middle; }
+.estimate td:last-child { white-space: nowrap; }
+.line-remove .link-button { color: var(--danger); }
+/* My Garage rows light up like table rows. */
+.row-list li:has(> .row-main > a.row-title):hover { background: var(--row-hover); box-shadow: 0 0 0 .5rem var(--row-hover); border-radius: 2px; }

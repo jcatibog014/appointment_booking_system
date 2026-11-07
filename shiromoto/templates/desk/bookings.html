@@ -28,7 +28,7 @@
           <thead><tr><th scope="col">When</th><th scope="col">Number</th><th scope="col">Customer</th><th scope="col">Vehicle</th><th scope="col">Services</th><th scope="col">Booked by</th><th scope="col">Status</th></tr></thead>
           <tbody>
             {% for item in rows %}
-              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}" class="{{ 'is-off' if item.status in ('cancelled', 'no_show') else '' }}">
+              <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}" class="{{ 'is-cancelled' if item.status == 'cancelled' else ('is-off' if item.status == 'no_show' else '') }}">
                 <td><a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.starts_at|local_moment(shop.timezone) }}</a></td>
                 <td class="mono">{{ item.ref }}</td>
                 <td>{{ item.customer.name }}</td>

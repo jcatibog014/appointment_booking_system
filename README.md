@@ -66,7 +66,7 @@ Car PMS (3 h 15 min with clean-up), starting 10:00:
 
 **The Book page** (customers): choose the vehicle, then the services, then a day. The strip shows how many times each day has. Every step is in the web address, so it can be shared.
 
-**Available Slots** (staff, in the menu) is not a booking page. It lists only what's still open: for each mechanic (or each bay), its slots, like "8:00 AM – 12:00 PM", and how much free time that is. A slot is a stretch of at least 30 minutes (the shortest service) with no booking, held time, break or leave. Each day in the strip says how many slots it has, like "9 slots available". To book from it, press **Book a walk-in or caller**. That page also shows which mechanics and bays each start time would use.
+**Available Slots** (staff, in the menu) is not a booking page. It lists only what's still open: for each mechanic (or each bay), its slots, like "8:00 AM – 12:00 PM", and how much free time that is. A slot is a stretch of at least 30 minutes (the shortest service) with no booking, held time, break or leave. Each day in the strip says how many slots it has, like "9 slots available". To book from it, press a slot (or **Book a walk-in or caller**): the booking page opens on that day. That page also shows which mechanics and bays each start time would use.
 
 ## How Double Booking Is Stopped
 
@@ -114,7 +114,7 @@ The tests do this for real: 10 threads press the same time at once. With one lif
 
 - **Today** is the desk's to-do page:
   - three tiles for the shop's hours (and the next closure), the day's bookings, and who's in;
-  - **Needs an Answer**: move requests and Other Service prices, in one list;
+  - **Needs an Answer**: move requests and Other Service prices, in one list. **Red** means the shop must act (a new time to answer, a price to send); **blue** means the shop is waiting for the customer;
   - **the queue**, with **Check in** (with the odometer reading) and **No-show** buttons.
 - **Calendar** is **the floor**: one row for each bay (or each mechanic), one column for each 15 minutes, with the bookings, the times someone is booking right now, lunch, and a red line for "now". Today doesn't repeat it.
 - **No-show:** after 15 minutes the front desk can mark a no-show. The rest of that booking's time is freed at once, so a walk-in can have the bay. If the customer comes after all, **They came** takes the time back. But if a walk-in was already booked into it, the database refuses and nothing changes.
@@ -138,7 +138,7 @@ Checked in → Inspecting → Waiting for approval → In progress → Ready for
 - **Check-in checklist:** fuel level, body, glass, lights, tires, warning lights and items left inside, plus **photos**. Every photo is made smaller and saved as WebP, and its hidden camera data (like the GPS position) is removed.
 - **Estimates:** during the job, staff add **a service from the shop's list** (its name and price fill in), other work, or a part, with a reason in plain words. The job goes to **Waiting for approval**, and the customer gets a message listing each item and its price. They **approve or decline each line** from their booking link. The shop only does what was approved, and the job can't be "Ready" while a line is waiting.
 - **Only one decision counts.** A line changes only while it is still "waiting" (`UPDATE ... WHERE status = 'proposed'`). If the customer and the front desk press at the same moment, the second one is told it was already decided.
-- **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list.
+- **Parts and stock:** an approved part is taken from stock **in the same transaction** with `stock = stock - n WHERE stock >= n`, so stock never goes below zero. If two jobs want the last brake pads at once, one gets them and the other goes to **Waiting for parts**. When the delivery comes, "The part is here" takes it. Every change is in the part's history, and there is a **low-stock** list. Each low part has an **Order** button with a suggested amount (enough to reach twice its "order at" level), which opens the part's Receive form with that amount filled in.
 - **Vehicle history:** every visit, the odometer and the extra work. **Next service due** says "after 6 months or 5,000 km, whichever comes first" (the owner sets this per service). It is also in the customer's My Garage.
 - **Jobs board:** every vehicle in the shop, by step. A mechanic sees their own jobs first.
 
@@ -196,6 +196,8 @@ The owner can change the Other Service's time, bay and skill in **Settings → S
 **The waitlist.** On a full day, a customer can **join the waitlist** for a range of days. When a time frees up (a cancellation, a no-show, a moved booking), the first person waiting is offered it:
 - the time is **held for 30 minutes**, so nobody else can take it, and they get a link;
 - if they don't take it, it goes to the next person (up to 3 offers each).
+
+At the desk, each offer shows a thin bar that drains over its 30 minutes, so you can see how long the customer has left.
 
 The offer is claimed with a conditional update, so two timers never offer the same person two times.
 

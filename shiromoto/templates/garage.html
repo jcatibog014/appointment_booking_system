@@ -12,8 +12,8 @@
     {% set price = item.quote_status == 'priced' and item.status == 'booked' %}
     {% if new_time or price %}
       <span class="pill-group">
-        {% if new_time %}<a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ 'New time to confirm' if item.move_by == 'shop' else 'Move requested' }}</a>{% endif %}
-        {% if price %}<a class="pill job-awaiting_approval" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">Price to confirm</a>{% endif %}
+        {% if new_time %}<a class="pill {{ 'pill-urgent' if item.move_by == 'shop' else 'pill-calm' }}" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ 'New time to confirm' if item.move_by == 'shop' else 'Move requested' }}</a>{% endif %}
+        {% if price %}<a class="pill pill-urgent" href="{{ url_for('bookings.show', ref=item.ref) }}#other-service">Price to confirm</a>{% endif %}
       </span>
     {% else %}
       <span class="pill pill-{{ item.status }}">{{ STATUS_LABELS[item.status] }}</span>
@@ -99,7 +99,11 @@
                   <a class="row-title" href="{{ url_for('bookings.show', ref=item.ref) }}">{{ item.vehicle.label }}</a>
                   <span class="muted small">{{ item.lines|map(attribute='name')|join(' + ') }} · {{ item.ref }}</span>
                 </div>
-                <span class="pill job-{{ item.job.status }}">{{ JOB_LABELS[item.job.status] }}</span>
+                {% if item.job.status == 'awaiting_approval' %}
+                  <a class="pill pill-urgent" href="{{ url_for('bookings.show', ref=item.ref) }}#estimate">Waiting for your approval</a>
+                {% else %}
+                  <span class="pill job-{{ item.job.status }}">{{ JOB_LABELS[item.job.status] }}</span>
+                {% endif %}
               </li>
             {% endfor %}
           </ul>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_desk.html" import actions, status_pill with context %}
-{% from "_macros.html" import quote_pill %}
+{% from "_macros.html" import icon, quote_pill %}
 {% block title %}Today - {{ shop.name }}{% endblock %}
 {% block content %}
   <div class="page-head">
@@ -24,7 +24,7 @@
           {% for c in plan.shop_closures if c.from_time %} · Closed {{ c.from_time|clock }} – {{ c.to_time|clock }} ({{ c.reason }}){% endfor %}</p>
       {% endif %}
       {% if coming %}{% set next_one = coming[0] %}
-        <p class="muted small">Next: {{ next_one.starts_on|day_range(next_one.ends_on) }}, {% if next_one.user %}{{ next_one.user.name }} on leave{% else %}{{ next_one.reason }}{% endif %}{% if coming|length > 1 %} · <a href="{{ url_for('settings.closures') if g.user.role == 'owner' else url_for('desk.calendar', view='week') }}">{{ coming|length - 1 }} more</a>{% endif %}</p>
+        <p class="muted small next-closure">{{ icon('calendar') }}<span>{{ next_one.starts_on|day_range(next_one.ends_on) }}, {% if next_one.user %}{{ next_one.user.name }} on leave{% else %}{{ next_one.reason }}{% endif %}{% if coming|length > 1 %} · <a href="{{ url_for('settings.closures') if g.user.role == 'owner' else url_for('desk.calendar', view='week') }}">{{ coming|length - 1 }} more</a>{% endif %}</span></p>
       {% endif %}
     </div>
     <div class="stat card">
@@ -69,7 +69,7 @@
           <tbody>
             {% for item in moves %}
               <tr data-href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">
-                <td><a class="pill {{ 'pill-no_show' if item.move_by == 'shop' else 'job-awaiting_approval' }}" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ 'New time sent' if item.move_by == 'shop' else 'New time' }}</a></td>
+                <td><a class="pill {{ 'pill-calm' if item.move_by == 'shop' else 'pill-urgent' }}" href="{{ url_for('bookings.show', ref=item.ref) }}#move-request">{{ 'New time sent' if item.move_by == 'shop' else 'New time' }}</a></td>
                 <td>{{ item.customer.name }}</td>
                 <td>{{ item.vehicle.label }}</td>
                 <td>{% if item.move_by == 'shop' %}You proposed <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong>; waiting for them{% else %}Asks for <strong>{{ item.move_starts_at|local_moment(shop.timezone) }}</strong>{% endif %}</td>

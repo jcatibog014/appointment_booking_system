@@ -21,9 +21,9 @@
           <tbody>
             {% for person, visits, last in rows %}
               <tr data-href="{{ url_for('desk.customer', customer_id=person.id) }}">
-                <td><a class="row-title" href="{{ url_for('desk.customer', customer_id=person.id) }}">{{ person.name }}</a>{% if person.user_id %} <span class="pill">Account</span>{% endif %}</td>
+                <td><a class="row-title" href="{{ url_for('desk.customer', customer_id=person.id) }}">{{ person.name }}</a>{% if person.user_id %} <span class="pill" title="Has an online account: their bookings and vehicles are in their My Garage">Account</span>{% endif %}</td>
                 <td>{{ person.phone }}</td>
-                <td>{{ person.vehicles|map(attribute='plate')|join(', ') }}</td>
+                <td><ul class="plate-list">{% for vehicle in person.vehicles %}<li class="plate" title="{{ vehicle.label }}">{{ vehicle.plate }}</li>{% endfor %}</ul></td>
                 <td class="num">{{ visits or 0 }}</td>
                 <td>{{ last|local_moment(shop.timezone) if last else '' }}</td>
               </tr>

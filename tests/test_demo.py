@@ -8,7 +8,7 @@ from sqlalchemy import func, select
 
 from shiromoto import auth, db
 from shiromoto.dates import utcnow
-from shiromoto.models import Appointment, Bay, Customer, Job, Part, Service, Shop, User, Vehicle
+from shiromoto.models import Appointment, Bay, Customer, Job, Part, Service, Shop, User, Vehicle, WaitlistEntry
 
 from .conftest import CSRF, PASSWORD, find, post
 
@@ -255,3 +255,40 @@ def test_the_demo_has_a_move_request_both_ways(app, demo):
     assert "Move requested" in demo.get("/garage").get_data(as_text=True)
     page = demo.get(f"/b/{asked.ref}").get_data(as_text=True)
     assert "Waiting for the shop" in page and "Withdraw the request" in page and "Ask for another time" not in page
+
+
+def test_the_owners_pages_after_the_polish(app, demo):
+    """The owner's pages: urgent and calm pills, slots that open the booking page,
+    an Order button for low stock, plates as badges, and the offer's draining bar."""
+    today = demo.get("/desk").get_data(as_text=True)
+    assert "pill-urgent" in today and "pill-calm" in today and 'class="icon"' in today  # the calendar icon
+    slots = demo.get("/desk/free").get_data(as_text=True)
+    assert 'class="free-chip" href="/book?day=' in slots
+    page = demo.get(slots.split('class="free-chip" href="')[1].split('"')[0]).get_data(as_text=True)
+    assert "?vehicle=car&amp;day=" in page  # the day carries on into the booking steps
+    parts = demo.get("/desk/parts").get_data(as_text=True)
+    assert ">Order " in parts and "#receive" in parts
+    assert 'class="plate"' in demo.get("/desk/customers").get_data(as_text=True)
+    assert "No vehicles here" in demo.get("/desk/jobs").get_data(as_text=True)
+    board = demo.get("/desk/calendar").get_data(as_text=True)
+    assert "tl-tick" in board and "Lunch break or closed" in board
+    waitlist = demo.get("/desk/waitlist").get_data(as_text=True)
+    assert "Offered a time" in waitlist and "data-drain" in waitlist  # Dan's offer, draining
+
+
+def test_the_other_roles_pages_after_the_polish(app, demo):
+    """Pills say who must act from the viewer's side, a mechanic removes a line on the
+    line itself, and the customer's waitlist offer drains too."""
+    shop_id = visitor(demo).shop_id
+    view_as(demo, person(app, shop_id, "mechanic"))
+    job = find(app, Job, Job.shop_id == shop_id, Job.status == "awaiting_approval")[0]
+    page = demo.get(f"/jobs/{job.id}").get_data(as_text=True)
+    assert 'class="line-remove"' in page and "The front desk can record a phone answer." in page
+    view_as(demo, person(app, shop_id, "customer"))
+    garage = demo.get("/garage").get_data(as_text=True)
+    assert "Waiting for your approval" in garage and "pill pill-urgent" in garage and "pill pill-calm" in garage
+    priced = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.quote_status == "priced")[0]
+    assert 'pill pill-urgent">Price to confirm' in demo.get(f"/b/{priced.ref}").get_data(as_text=True)
+    dan = find(app, WaitlistEntry, WaitlistEntry.shop_id == shop_id, WaitlistEntry.status == "offered")[0]
+    page = demo.get(f"/waitlist/{dan.token}").get_data(as_text=True)
+    assert "min left" in page and "data-drain" in page

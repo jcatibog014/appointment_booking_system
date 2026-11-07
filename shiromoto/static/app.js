@@ -172,6 +172,21 @@ function setUpCountdown() {
   tick();
 }
 
+// A waitlist offer's bar drains by itself, one second at a time (a <progress>, so no
+// inline styles are needed). The page is the truth when it's opened again.
+function setUpDrainingBars() {
+  const bars = document.querySelectorAll("progress[data-drain]");
+  if (!bars.length) return;
+  const started = Date.now();
+  const start = [...bars].map((bar) => Number(bar.value));
+  const tick = () => {
+    const gone = Math.floor((Date.now() - started) / 1000);
+    bars.forEach((bar, n) => { bar.value = Math.max(0, start[n] - gone); });
+    if (gone < Math.max(...start)) setTimeout(tick, 1000);
+  };
+  setTimeout(tick, 1000);
+}
+
 // ---------- The phone app ----------
 
 // The service worker keeps the look and an offline page, and shows push notices.
@@ -295,6 +310,7 @@ setUpServiceWorker();
 setUpInstall();
 setUpPush();
 setUpCountdown();
+setUpDrainingBars();
 setUpToasts();
 setUpMenu();
 setUpUserMenu();
