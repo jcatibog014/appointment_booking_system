@@ -18,7 +18,7 @@
         {{ link('desk.today', 'Today', request.endpoint == 'desk.today') }}
         {{ link('desk.calendar', 'Calendar', request.endpoint == 'desk.calendar') }}
         {{ link('jobs.board', 'Jobs', request.endpoint in ('jobs.board', 'jobs.show')) }}
-        {{ link('book.index', 'Free Times', section == 'book') }}
+        {{ link('desk.free_times', 'Free Times', request.endpoint == 'desk.free_times' or section == 'book') }}
         {% if g.user.role in ('owner', 'advisor') %}
           {{ link('desk.bookings', 'Bookings', request.endpoint == 'desk.bookings' or section == 'bookings') }}
           {{ link('desk.customers', 'Customers', request.endpoint in ('desk.customers', 'desk.customer', 'jobs.vehicle')) }}
@@ -26,7 +26,7 @@
           {{ link('waiting.desk', 'Waitlist', request.endpoint == 'waiting.desk') }}
           {% if g.user.role == 'owner' %}{{ link('desk.insights', 'Insights', request.endpoint == 'desk.insights') }}{% endif %}
         {% endif %}
-        {{ link('public.home', 'Shop Website', section == 'public') }}
+        {{ link('public.shop_page', 'Shop Website', section == 'public') }}
       </ul>
       <ul class="nav-links nav-links-end">
         {{ link('settings.index', 'Settings', section == 'settings') }}

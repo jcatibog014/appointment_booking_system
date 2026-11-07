@@ -2,16 +2,19 @@
 {# The customer-facing header: the shop, its sections, and a way in. #}
 <header class="site-header">
   <div class="site-header-inner">
-    {{ wordmark(url_for('public.home'), shop.name if shop else APP_NAME) }}
+    {# A customer's home is My Garage. Hours are on the Services page, so they have no button of their own. #}
+    {% set customer = g.user and not g.user.is_staff %}
+    {{ wordmark(url_for('garage.index') if customer else url_for('public.home'), shop.name if shop else APP_NAME) }}
     {% if shop %}
       <nav class="site-nav" aria-label="Main">
-        <a href="{{ url_for('public.home') }}#services">Services</a>
-        <a href="{{ url_for('public.home') }}#hours">Hours</a>
+        {% if customer %}
+          <a href="{{ url_for('garage.index') }}"{% if request.blueprint == 'garage' %} aria-current="page"{% endif %}>My Garage</a>
+        {% endif %}
         <a href="{{ url_for('book.index') }}"{% if request.blueprint == 'book' %} aria-current="page"{% endif %}>Book</a>
+        <a href="{{ url_for('public.shop_page') if customer else url_for('public.home') }}#services"{% if request.endpoint == 'public.shop_page' %} aria-current="page"{% endif %}>Services</a>
         {% if g.user and g.user.is_staff %}
           <a class="button button-small" href="{{ url_for('desk.today') }}">Back to the desk</a>
         {% elif g.user %}
-          <a href="{{ url_for('garage.index') }}"{% if request.blueprint == 'garage' %} aria-current="page"{% endif %}>My Garage</a>
           <a href="{{ url_for('settings.index') }}"{% if request.blueprint == 'settings' %} aria-current="page"{% endif %}>Settings</a>
         {% else %}
           <a class="button button-small button-quiet" href="{{ url_for('auth.login') }}">Log in</a>

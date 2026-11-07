@@ -201,7 +201,7 @@ def test_the_desk_sees_it_and_is_told(app, shop_id, day):
         told = {n.user_id for n in s.scalars(select(Notification).where(Notification.kind == "move_request"))}
         assert len(told) == 3  # the owner, the advisor and Jun, the booking's mechanic
     today = owner.get("/desk").get_data(as_text=True)
-    assert "Move Requests" in today and "Liza Ramos" in today
+    assert "Needs an Answer" in today and "New time" in today and "Liza Ramos" in today
     page = owner.get(f"/b/{ref}").get_data(as_text=True)
     assert "Approve the new time" in page and "with Jun in Lift 1" in page
 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_macros.html" import csrf, service_price, textarea, visit_price %}
-{% set title = (('Move Booking ' ~ moving.ref) if staff_view else 'Ask for a New Time') if moving else ('Free Times' if staff_view else 'Book a Service') %}
+{% set title = (('Move Booking ' ~ moving.ref) if staff_view else 'Ask for a New Time') if moving else ('Book for a Customer' if staff_view else 'Book a Service') %}
 {% block title %}{{ title }} - {{ shop.name }}{% endblock %}
 {% block page_class %}book{% endblock %}
 {% block content %}

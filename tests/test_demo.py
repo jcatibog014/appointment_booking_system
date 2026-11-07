@@ -165,11 +165,11 @@ def test_the_demo_has_a_limit(app, monkeypatch):
 
 def pages_for(app, role, shop_id):
     pms = find(app, Service, Service.shop_id == shop_id, Service.name == "Car PMS")[0]
-    pages = ["/", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
+    pages = ["/shop", "/settings", "/book", "/book?vehicle=car", "/book?vehicle=moto", f"/book?vehicle=car&service={pms.id}"]
     first_booking = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.status == "booked")[0]
     if role != "customer":
         pages += ["/desk", f"/b/{first_booking.ref}", "/desk/calendar", "/desk/calendar?view=week",
-                  "/desk/calendar?by=mechanic"]
+                  "/desk/calendar?by=mechanic", "/desk/free", "/desk/free?by=mechanic"]
     if role in ("owner", "advisor"):
         carlo = find(app, Customer, Customer.shop_id == shop_id, Customer.name == "Carlo Mendoza")[0]
         pages += ["/desk/bookings", "/desk/customers", f"/desk/customers/{carlo.id}", "/desk/parts",
@@ -235,7 +235,7 @@ def test_the_demo_shows_the_other_service_both_ways(app, demo):
     """The desk has a request to price, and Carlo has a price to confirm or decline."""
     shop_id = visitor(demo).shop_id
     today = demo.get("/desk").get_data(as_text=True)
-    assert "Other Services to Price" in today and "The horn stopped working" in today
+    assert "Needs an Answer" in today and "The horn stopped working" in today
     view_as(demo, person(app, shop_id, "customer"))
     garage = demo.get("/garage").get_data(as_text=True)
     assert "Price to confirm" in garage
@@ -248,7 +248,7 @@ def test_the_demo_has_a_move_request_both_ways(app, demo):
     """The desk has a move request to answer, and Carlo sees his waiting for the shop."""
     shop_id = visitor(demo).shop_id
     today = demo.get("/desk").get_data(as_text=True)
-    assert "Move Requests" in today and "Carlo Mendoza" in today
+    assert "Needs an Answer" in today and "New time" in today and "Carlo Mendoza" in today
     asked = find(app, Appointment, Appointment.shop_id == shop_id, Appointment.move_status == "asked")[0]
     assert "Approve the new time" in demo.get(f"/b/{asked.ref}").get_data(as_text=True)
     view_as(demo, person(app, shop_id, "customer"))

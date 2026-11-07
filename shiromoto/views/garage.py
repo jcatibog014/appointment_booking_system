@@ -69,8 +69,14 @@ def index():
     lookup = {sv.id: sv for sv in s.scalars(select(Service).where(Service.shop_id == shop.id))}
     due = {v.id: jobs.next_due([b for b in bookings if b.vehicle_id == v.id and b.checked_in_at], lookup)
            for v in customer.vehicles}
+    # The dashboard's top: what needs the customer's answer, and the next service due.
+    answers = [("estimate", b) for b in in_shop if any(line.status == "proposed" for line in b.job.lines)]
+    answers += [("price", b) for b in upcoming if b.quote_status == "priced"]
+    coming_due = sorted(((due_day, name, vehicle) for vehicle in customer.vehicles
+                         for name, _, _, due_day, _ in due[vehicle.id] if due_day), key=lambda item: item[0])
     return render_template("garage.html", customer=customer, upcoming=upcoming, past=past[:12], in_shop=in_shop,
-                           due=due, errors={}, public_page=True, now=now)
+                           due=due, errors={}, public_page=True, now=now, answers=answers,
+                           next_due=coming_due[0] if coming_due else None)
 
 
 def read_vehicle(form):

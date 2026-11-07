@@ -314,3 +314,27 @@ def test_calendar_text_is_escaped_and_folded():
     assert all(len(part.encode()) <= 75 for part in folded.split("\r\n"))
     assert folded.replace("\r\n ", "") == "DESCRIPTION:" + "₱" * 40
     assert calendar_file.offset_text(timedelta(hours=-4, minutes=-30)) == "-0430"
+
+
+def test_a_customer_starts_at_my_garage(app, shop_id):
+    """My Garage is a customer's start page; the shop's page is still at /shop. The
+    phone app opens /?from=app, so staff start at the desk."""
+    customer = log_in_as(app.test_client(), make_user(app, shop_id, "carlo@example.com", "customer", "Carlo"))
+    assert customer.get("/").headers["Location"] == "/garage"
+    page = customer.get("/shop").get_data(as_text=True)
+    assert "Services and Prices" in page and ">Hours<" not in page and ">My Garage<" in page
+    staff = log_in_as(app.test_client(), make_user(app, shop_id, "hiro@shop.example", "owner", "Hiro"))
+    assert staff.get("/").status_code == 200  # Shop Website
+    assert staff.get("/?from=app").headers["Location"] == "/desk"
+    assert "Next visit" in customer.get("/garage").get_data(as_text=True)
+
+
+def test_free_times_lists_only_what_is_open(app, shop_id, day):
+    owner = log_in_as(app.test_client(), make_user(app, shop_id, "hiro@shop.example", "owner", "Hiro"))
+    page = owner.get(f"/desk/free?day={day}&by=mechanic").get_data(as_text=True)
+    # Jun works 8:00 to 5:00 with lunch at 12:00: two free stretches, nothing to choose first.
+    assert "Jun" in page and "8:00 AM – 12:00 PM" in page and "1:00 PM – 5:00 PM" in page and "8 h" in page
+    assert "Vehicle" not in page and "Choose" not in page
+    book(browser(app), app, shop_id, day, start=8 * H)  # an oil change, 8:00 to 9:00
+    page = owner.get(f"/desk/free?day={day}&by=bay").get_data(as_text=True)
+    assert "9:00 AM – 12:00 PM" in page and "Lift 1" in page

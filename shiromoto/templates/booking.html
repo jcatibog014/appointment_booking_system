@@ -54,6 +54,39 @@
           {% if can_change and (staff_view or not move_waiting) %}<a class="button button-quiet" href="{{ url_for('bookings.choose_new_time', ref=appointment.ref) }}">{{ 'Move to another time' if staff_view else 'Ask for another time' }}</a>{% endif %}
         </p>
       {% endif %}
+      {% if staff_view and g.user.role in ('owner', 'advisor') and appointment.status in ('booked', 'no_show') %}
+        <div class="desk-actions">
+          {% if appointment.status == 'booked' and now >= appointment.starts_at - CHECK_IN_EARLY and now < appointment.ends_at %}
+            <form method="post" action="{{ url_for('bookings.check_in', ref=appointment.ref) }}" class="filter-bar plain">
+              {{ csrf() }}
+              <input type="hidden" name="version" value="{{ appointment.version }}">
+              <label class="field"><span class="field-label">Odometer <span class="hint">Optional, in km</span></span><input name="mileage" inputmode="numeric" maxlength="9"></label>
+              <label class="field"><span class="field-label">Fuel</span><select name="fuel"><option value="">Not noted</option>{% for level in ('Empty', '1/4', '1/2', '3/4', 'Full') %}<option>{{ level }}</option>{% endfor %}</select></label>
+              <div class="filter-actions"><button class="button" type="submit">Check in</button></div>
+            </form>
+          {% endif %}
+          {% set desk_buttons = actions(appointment, now, check_in=False) %}
+          {% if desk_buttons|trim %}<div class="actions">{{ desk_buttons }}</div>{% endif %}
+          {% if appointment.status == 'booked' and now < appointment.starts_at - CHECK_IN_EARLY %}
+            <p class="muted small">Check in opens 2 hours before the start.</p>
+          {% endif %}
+        </div>
+      {% endif %}
+      {% if appointment.status == 'booked' %}
+        {% if can_change %}
+          <details class="cancel-details">
+            <summary>Cancel this booking</summary>
+            <form method="post" action="{{ url_for('bookings.cancel', ref=appointment.ref) }}" class="stack" data-confirm="Cancel booking {{ appointment.ref }}?">
+              {{ csrf() }}
+              <input type="hidden" name="version" value="{{ appointment.version }}">
+              {{ field('reason', 'Reason', hint='Optional, it helps us', attrs='maxlength="200"') }}
+              <div class="form-actions"><button class="button button-danger" type="submit">Cancel booking</button></div>
+            </form>
+          </details>
+        {% elif not staff_view %}
+          <p class="call-note">It's less than {{ shop.cancel_cutoff_hours }} hours before your booking, so it can't be changed online.{% if shop.phone %} Please call <a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>.{% endif %}</p>
+        {% endif %}
+      {% endif %}
     </section>
 
     {% if appointment.move_status and appointment.move_status != 'withdrawn' and appointment.move_starts_at %}
@@ -195,40 +228,7 @@
       {% endif %}
     {% endif %}
 
-    {% if staff_view and g.user.role in ('owner', 'advisor') and appointment.status in ('booked', 'no_show') %}
-      <section class="card desk-actions">
-        <h2>Front Desk</h2>
-        {% if appointment.status == 'booked' and now >= appointment.starts_at - CHECK_IN_EARLY and now < appointment.ends_at %}
-          <form method="post" action="{{ url_for('bookings.check_in', ref=appointment.ref) }}" class="filter-bar plain">
-            {{ csrf() }}
-            <input type="hidden" name="version" value="{{ appointment.version }}">
-            <label class="field"><span class="field-label">Odometer <span class="hint">Optional, in km</span></span><input name="mileage" inputmode="numeric" maxlength="9"></label>
-            <label class="field"><span class="field-label">Fuel</span><select name="fuel"><option value="">Not noted</option>{% for level in ('Empty', '1/4', '1/2', '3/4', 'Full') %}<option>{{ level }}</option>{% endfor %}</select></label>
-            <div class="filter-actions"><button class="button" type="submit">Check in</button></div>
-          </form>
-        {% endif %}
-        <div class="actions">{{ actions(appointment, now, check_in=False) }}</div>
-        {% if appointment.status == 'booked' and now < appointment.starts_at - CHECK_IN_EARLY %}
-          <p class="muted small">Check in opens 2 hours before the start.</p>
-        {% endif %}
-      </section>
-    {% endif %}
 
-    {% if appointment.status == 'booked' %}
-      {% if can_change %}
-        <section class="card">
-          <h2>Cancel This Booking</h2>
-          <form method="post" action="{{ url_for('bookings.cancel', ref=appointment.ref) }}" class="stack" data-confirm="Cancel booking {{ appointment.ref }}?">
-            {{ csrf() }}
-            <input type="hidden" name="version" value="{{ appointment.version }}">
-            {{ field('reason', 'Reason', hint='Optional, it helps us', attrs='maxlength="200"') }}
-            <div class="form-actions"><button class="button button-danger" type="submit">Cancel booking</button></div>
-          </form>
-        </section>
-      {% elif not staff_view %}
-        <p class="call-note">It's less than {{ shop.cancel_cutoff_hours }} hours before your booking, so it can't be changed online.{% if shop.phone %} Please call <a href="tel:{{ shop.phone|replace(' ', '') }}">{{ shop.phone }}</a>.{% endif %}</p>
-      {% endif %}
-    {% endif %}
 
     {% if not staff_view and appointment.status in ('booked', 'checked_in') and vapid_key %}
       <section class="card push-card" data-push-card data-push-ref="{{ appointment.ref }}" hidden>
