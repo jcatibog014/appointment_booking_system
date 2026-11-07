@@ -74,7 +74,7 @@ The owner is made with `flask create-owner`. Staff join by an invite link. Custo
 - tests: 10 threads race for one slot and exactly 1 wins (SQLite file database, and Neon through `TEST_DATABASE_URL`).
 
 ## Look: "Garage night, purple"
-- Charcoal sidebar (#16151c), off-white cards, a **purple accent** (around #7c3aed light / #a78bfa dark; the contrast is checked), and bold condensed headings (Barlow Condensed, self-hosted).
+- Charcoal sidebar (#16151c), off-white cards, a **purple accent** (around #7c3aed light / #a78bfa dark; the contrast is checked), and bold condensed headings (Barlow Condensed at first, now Saira Condensed with Inter for the text; both self-hosted).
 - A faint diamond-plate texture only on the login panel and the empty states.
 - The login panel takes 1/3 of the screen. Dark mode and Log out go in Settings.
 - Few emoji, aligned controls.
@@ -112,6 +112,7 @@ After the stages:
   - a booking's desk and cancel parts live in its one card;
   - Available Slots (`/desk/free`, `slots.free_time`) lists only the open stretches of 30 minutes or more, and counts them per day;
   - the phone app's service worker fetches styles and scripts from the network first, so a new look shows at once.
+- **New fonts:** Saira Condensed for headings, prices and plates, and Inter for the text, chosen from a short list (Oswald, Rajdhani, Chakra Petch, Teko, Exo 2 and others for headings; Barlow, IBM Plex Sans or the device's font for the text).
 - **The owner's view, polished:** a quieter demo bar with an eye icon on View as, themed scrollbars, red (the shop must act) and blue (waiting for the customer) pills, whole rows that light up, hour lines and card-like blocks on the calendar, "No vehicles here" on empty job columns, slots that open the booking page, cancelled bookings struck through, plates as badges, Order buttons for low stock, a draining bar on waitlist offers, whole-number chart lines, a bigger Expected money, Book buttons and a map link on the shop's page.
 - **Both sides agree on a new time** (migration 0008, `move_by`): staff propose a new time and the customer accepts or declines it (or staff record a phone answer, or move at once when the customer already agreed). During a job, staff can add a service from the menu to the estimate, and the customer's message lists each item's price.
 - **Move requests** (`moves.py`, migration 0007): customers ask for a new time instead of moving the booking. The new time is held while the owner, an advisor or a mechanic decides, and approving moves the booking in one transaction.

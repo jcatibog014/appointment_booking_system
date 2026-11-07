@@ -4,7 +4,7 @@
 //   at once. The kept copy is only used when there is no network.
 // - It shows push notices, and opens the right page when one is tapped.
 // Changing VERSION clears the kept copies on every phone.
-const VERSION = "shiromoto-v2";
+const VERSION = "shiromoto-v3";
 const KEEP = [
   "/offline",
   "/static/style.css",
@@ -12,8 +12,9 @@ const KEEP = [
   "/static/theme.js",
   "/static/icon.svg",
   "/static/icons/icon-192.png",
-  "/static/fonts/barlow-condensed-600.woff2",
-  "/static/fonts/barlow-condensed-700.woff2",
+  "/static/fonts/saira-condensed-600.woff2",
+  "/static/fonts/saira-condensed-700.woff2",
+  "/static/fonts/inter-variable.woff2",
 ];
 
 self.addEventListener("install", (event) => {
