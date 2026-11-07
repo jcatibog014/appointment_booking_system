@@ -44,15 +44,17 @@
     {% endfor %}
     {% if job.status not in ('ready', 'released') %}
       <details class="add-line"{% if not job.lines %} open{% endif %}>
-        <summary>Add work or a part</summary>
+        <summary>Add a service, work or a part</summary>
+        <p class="small muted">The customer is asked first: they get a message with the price, and approve or decline it from their booking page. Nothing is done before they approve.</p>
         <form method="post" action="{{ url_for('jobs.add_line', job_id=job.id) }}" class="stack">
           {{ csrf() }}
           <div class="form-grid">
+            {{ select('service_id', 'A service from our list', [('', 'None (write the work below)')] + service_options, '', hint='Its name and price fill in by themselves') }}
             {{ select('kind', 'Kind', [('labor', 'Labor'), ('part', 'Part')], 'labor') }}
             {{ select('part_id', 'Part from stock', [('', 'None (labor, or a part we order)')] + part_options, '', hint='Its price fills in by itself') }}
-            {{ field('description', 'What', hint='Like: Replace front brake pads', attrs='maxlength="160"') }}
+            {{ field('description', 'What', hint='Like: Replace front brake pads. Empty for a service: its name', attrs='maxlength="160"') }}
             {{ field('quantity', 'Quantity', '1', attrs='inputmode="numeric"') }}
-            {{ field('unit_price', 'Price each (₱)', hint='Empty: the part\'s price', attrs='inputmode="decimal"') }}
+            {{ field('unit_price', 'Price each (₱)', hint='Empty: the service\'s or the part\'s price', attrs='inputmode="decimal"') }}
           </div>
           {{ textarea('reason', 'Why it\'s needed', hint='In plain words: the customer reads this', rows=2, attrs='maxlength="300"') }}
           <div class="form-actions"><button class="button" type="submit">Add to estimate</button></div>

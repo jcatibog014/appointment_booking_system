@@ -261,6 +261,10 @@ def add_bookings(s, shop, people, today, moment):
     asked = book("Carlo Mendoza", "123 QWE", ["Motorcycle PMS", "Other Motorcycle Service"], 3, (10, 0),
                  request_text="Rattle from the front fork over bumps.")
     if asked is not None:
+        # ...and the shop asks Carlo to come after lunch instead (View As Carlo: accept or keep).
+        moves.place_request(s, shop, asked, to_local(asked.starts_at, shop.timezone).date(), 14 * 60,
+                            moment - timedelta(minutes=30), side=moves.SHOP_SIDE,
+                            note="Our motorcycle mechanic is out that morning. Could you come after lunch?")
         asked.quote_status, asked.quote_price = PRICED, 85000
         asked.quote_note = "Front fork oil and new seals. Your booking time stays the same."
         asked.quoted_by, asked.quoted_at = people["mika"].name, moment - timedelta(hours=2)

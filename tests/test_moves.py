@@ -288,3 +288,109 @@ def test_two_asks_at_once_make_one_request(app, shop_id, day, run):
         appointment = s.get(Appointment, appointment_id)
         [held] = s.scalars(select(Hold)).all()
         assert held.token == appointment.move_hold_token and held.starts_at == appointment.move_starts_at
+
+
+# ---------- The shop proposes; the customer answers ----------
+
+def propose(app, shop_id, appointment_id, day, start=10 * H, now=None):
+    with app.app_context():
+        s = db.session()
+        appointment = s.get(Appointment, appointment_id)
+        moves.ask(s, s.get(Shop, shop_id), appointment, day, start, now or utcnow(), "Our lift is in repair",
+                  by=jun(s))
+        return appointment.move_hold_token
+
+
+def guest(app, appointment_id):
+    """A browser with the booking's private link: the customer."""
+    with app.app_context():
+        appointment = db.session().get(Appointment, appointment_id)
+        appointment.token_hash = booking.token_hash("t0ken")
+        db.session().commit()
+        ref = appointment.ref
+    client = app.test_client()
+    with client.session_transaction() as session:
+        session["csrf"] = CSRF
+    client.get(f"/b/{ref}?t=t0ken")
+    return client, ref
+
+
+def test_staff_propose_and_nothing_moves_until_the_customer_accepts(app, shop_id, day):
+    appointment_id = make_booking(app, shop_id, day)
+    propose(app, shop_id, appointment_id, day + timedelta(days=1))
+    customer, ref = guest(app, appointment_id)
+    with app.app_context():
+        appointment = db.session().get(Appointment, appointment_id)
+        assert appointment.move_by == moves.SHOP_SIDE and appointment.starts_at == appointment.move_from_at
+    page = customer.get(f"/b/{ref}").get_data(as_text=True)
+    assert "The Shop Asks for a New Time" in page and "Accept the new time" in page and "Keep my time" in page
+    assert "Our lift is in repair" in page and "Withdraw" not in page
+    done = post(customer, f"/b/{ref}/move/answer", {"answer": "approve"}, follow_redirects=True)
+    assert "Your booking is on the new time" in done.get_data(as_text=True)
+    with app.app_context():
+        s = db.session()
+        appointment = s.get(Appointment, appointment_id)
+        assert appointment.move_status == MOVE_APPROVED and appointment.starts_at == appointment.move_starts_at
+        assert appointment.move_decided_by == "the customer" and count(s, Hold) == 0
+        assert count(s, Notification, Notification.kind == "move_answer") >= 1  # the desk and Jun are told
+
+
+def test_the_customer_keeps_their_time(app, shop_id, day):
+    appointment_id = make_booking(app, shop_id, day)
+    propose(app, shop_id, appointment_id, day + timedelta(days=1))
+    customer, ref = guest(app, appointment_id)
+    post(customer, f"/b/{ref}/move/answer", {"answer": "decline", "reply": "Mornings only"})
+    with app.app_context():
+        s = db.session()
+        appointment = s.get(Appointment, appointment_id)
+        assert appointment.move_status == MOVE_DECLINED and appointment.starts_at == appointment.move_from_at
+        assert appointment.move_reply == "Mornings only" and count(s, Hold) == 0
+
+
+def test_only_the_side_that_asked_can_withdraw(app, shop_id, day):
+    appointment_id = make_booking(app, shop_id, day)
+    propose(app, shop_id, appointment_id, day + timedelta(days=1))
+    customer, ref = guest(app, appointment_id)
+    assert post(customer, f"/b/{ref}/move/withdraw").status_code == 404
+    desk = log_in_as(app.test_client(), make_user(app, shop_id, "mika@shop.example", ADVISOR, "Mika Reyes"))
+    post(desk, f"/b/{ref}/move/withdraw")
+    assert find(app, Appointment)[0].move_status == MOVE_WITHDRAWN
+
+
+def test_staff_record_a_phone_answer(app, shop_id, day):
+    appointment_id = make_booking(app, shop_id, day)
+    propose(app, shop_id, appointment_id, day + timedelta(days=1))
+    desk = log_in_as(app.test_client(), make_user(app, shop_id, "mika@shop.example", ADVISOR, "Mika Reyes"))
+    ref = find(app, Appointment)[0].ref
+    page = desk.get(f"/b/{ref}").get_data(as_text=True)
+    assert "Waiting for Liza Ramos" in page and "They said yes" in page and "Withdraw the new time" in page
+    post(desk, f"/b/{ref}/move/answer", {"answer": "approve"})
+    moved = find(app, Appointment)[0]
+    assert moved.move_status == MOVE_APPROVED and moved.move_decided_by == "Mika Reyes, for the customer"
+
+
+def test_staff_move_at_once_only_when_the_customer_already_agreed(app, shop_id, day):
+    make_booking(app, shop_id, day)
+    desk = log_in_as(app.test_client(), make_user(app, shop_id, "mika@shop.example", ADVISOR, "Mika Reyes"))
+    ref = find(app, Appointment)[0].ref
+    page = desk.get(f"/b/{ref}/move/confirm?day={day + timedelta(days=1)}&start={10 * H}").get_data(as_text=True)
+    assert "Liza Ramos has to agree first" in page and "Ask Liza to confirm" in page and "They agreed" in page
+    post(desk, f"/b/{ref}/move/confirm", {"day": (day + timedelta(days=1)).isoformat(), "start": 10 * H})
+    asked = find(app, Appointment)[0]
+    assert asked.move_status == MOVE_ASKED and asked.starts_at == asked.move_from_at  # asked, not moved
+    post(desk, f"/b/{ref}/move/withdraw")
+    post(desk, f"/b/{ref}/move/confirm", {"day": (day + timedelta(days=1)).isoformat(), "start": 10 * H,
+                                          "agreed": "yes"})
+    moved = find(app, Appointment)[0]
+    assert moved.starts_at != moved.move_from_at and moved.move_status == MOVE_WITHDRAWN
+
+
+def test_staff_can_propose_close_to_the_booking(app, shop_id, day):
+    """The customers' 12-hour cut-off is theirs: the shop can still ask, and the new
+    time is held only until the booking starts."""
+    appointment_id = make_booking(app, shop_id, day)
+    with app.app_context():
+        starts = db.session().get(Appointment, appointment_id).starts_at
+    propose(app, shop_id, appointment_id, day, 14 * H, now=starts - timedelta(hours=3))
+    with app.app_context():
+        assert db.session().get(Appointment, appointment_id).move_expires_at == starts

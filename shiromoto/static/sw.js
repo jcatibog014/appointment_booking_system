@@ -1,10 +1,10 @@
 // The service worker: what makes ShiroMoto Garage work like an app on a phone.
 // - It keeps a copy of the look (CSS, scripts, fonts, icons) and an offline page.
-// - Pages always come from the network first (bookings change all the time); only
-//   when there is no network does the offline page show.
+// - Pages AND the look come from the network first, so a new style or script shows
+//   at once. The kept copy is only used when there is no network.
 // - It shows push notices, and opens the right page when one is tapped.
-// Change VERSION when a cached file changes, so phones fetch the new one.
-const VERSION = "shiromoto-v1";
+// Changing VERSION clears the kept copies on every phone.
+const VERSION = "shiromoto-v2";
 const KEEP = [
   "/offline",
   "/static/style.css",
@@ -36,7 +36,17 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   if (new URL(request.url).pathname.startsWith("/static/")) {
-    event.respondWith(caches.match(request).then((kept) => kept || fetch(request)));
+    event.respondWith(
+      fetch(request)
+        .then((fresh) => {
+          if (fresh.ok) {
+            const copy = fresh.clone();
+            caches.open(VERSION).then((cache) => cache.put(request, copy));
+          }
+          return fresh;
+        })
+        .catch(() => caches.match(request)),
+    );
   }
 });
 

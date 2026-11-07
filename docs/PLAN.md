@@ -110,7 +110,9 @@ After the stages:
   - My Garage is their dashboard and start page (`/` sends a logged-in customer there; the shop's page is also at `/shop`);
   - Today folds its two answer lists into one and leaves the floor to the Calendar;
   - a booking's desk and cancel parts live in its one card;
-  - Free Times (`/desk/free`, `slots.free_time`) lists only the open stretches.
+  - Available Slots (`/desk/free`, `slots.free_time`) lists only the open stretches of 30 minutes or more, and counts them per day;
+  - the phone app's service worker fetches styles and scripts from the network first, so a new look shows at once.
+- **Both sides agree on a new time** (migration 0008, `move_by`): staff propose a new time and the customer accepts or declines it (or staff record a phone answer, or move at once when the customer already agreed). During a job, staff can add a service from the menu to the estimate, and the customer's message lists each item's price.
 - **Move requests** (`moves.py`, migration 0007): customers ask for a new time instead of moving the booking. The new time is held while the owner, an advisor or a mechanic decides, and approving moves the booking in one transaction.
 - **The Other Service** (`quotes.py`, migration 0006): the customer writes what they need and books a time; staff send the price; the customer confirms or declines it. The answer is a conditional UPDATE on the price the customer saw, and declining shortens or cancels the booking in the same transaction.
 

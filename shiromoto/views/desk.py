@@ -116,7 +116,7 @@ def calendar():
     return render_template("desk/calendar.html", **context)
 
 
-# ---------- Free Times: only what's left of each day ----------
+# ---------- Available Slots: only what's left of each day ----------
 
 FREE_DAYS = 7
 
@@ -124,8 +124,8 @@ FREE_DAYS = 7
 @bp.get("/free")
 @staff_required
 def free_times():
-    """Each mechanic's and each bay's open time that isn't booked or held, for a
-    day: no vehicle or services to choose, just what's free."""
+    """Each mechanic's (or each bay's) open stretches that aren't booked or held, for a
+    day: no vehicle or services to choose. Each stretch is one available slot."""
     from .. import slots
     s = db.session()
     shop = shops.current()
@@ -145,17 +145,17 @@ def free_times():
         crew, bays = slots.free_time(picture, earliest)
         return picture, crew, bays
 
+    by = chosen_by()
     strip = []
     for n in range(FREE_DAYS):
         d = strip_start + timedelta(days=n)
         if d > last:
             break
-        picture, crew, _ = free_on(d)
-        # Every mechanic's open time, added up: how busy the day still is.
-        open_minutes = sum(end - start for _, windows in crew for start, end in windows)
-        strip.append((d, picture.closed, open_minutes))
+        picture, crew, bays = free_on(d)
+        # How many slots the day has, counted the way the table below lists them.
+        count = sum(len(windows) for _, windows in (crew if by == "mechanic" else bays))
+        strip.append((d, picture.closed, count))
     picture, crew, bays = free_on(day)
-    by = chosen_by()
     return render_template(
         "desk/free_times.html", day=day, today=today, strip=strip, picture=picture, by=by,
         rows=crew if by == "mechanic" else bays, can_book=g.user.role in (OWNER, ADVISOR),

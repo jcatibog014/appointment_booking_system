@@ -73,8 +73,10 @@ def index():
     moving = None
     if request.args.get("move"):
         moving = open_booking(request.args["move"])
-        if not staff_view and moving.move_waiting(utcnow()):
-            flash("You already asked for a new time. Wait for the shop's answer, or withdraw it first.", "error")
+        if moving.move_waiting(utcnow()):
+            flash("A new time for this booking is already waiting for an answer. Withdraw it first."
+                  if staff_view else "You already asked for a new time. Wait for the shop's answer, or withdraw it "
+                  "first.", "error")
             return redirect(url_for("bookings.show", ref=moving.ref))
         vehicle = moving.vehicle.kind
         ids = {line.service_id for line in moving.lines if line.service_id}
@@ -111,9 +113,9 @@ def index():
         return render_template("book.html", **context)
 
     now = utcnow()
-    # Staff move a booking at once, so its own time counts as free. A customer's new time is
-    # held while the shop decides, next to the booking's own time, so their own time is busy.
-    ignore = moving.id if moving and staff_view else None
+    # A new time is held while the other side decides, next to the booking's own time,
+    # so the booking's own time counts as busy here (moves.py).
+    ignore = None
 
     def busy_for(day):
         return booking.busy_map(s, shop, day, now, ignore)
