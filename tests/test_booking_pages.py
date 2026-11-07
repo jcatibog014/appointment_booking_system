@@ -323,6 +323,8 @@ def test_a_customer_starts_at_my_garage(app, shop_id):
     assert customer.get("/").headers["Location"] == "/garage"
     page = customer.get("/shop").get_data(as_text=True)
     assert "Services and Prices" in page and ">Hours<" not in page and ">My Garage<" in page
+    assert 'href="/shop">Services<' not in page and 'href="/shop" aria-current="page">Services<' in page
+    assert "#services" not in customer.get("/garage").get_data(as_text=True)  # the page's top, not a section
     staff = log_in_as(app.test_client(), make_user(app, shop_id, "hiro@shop.example", "owner", "Hiro"))
     assert staff.get("/").status_code == 200  # Shop Website
     assert staff.get("/?from=app").headers["Location"] == "/desk"
