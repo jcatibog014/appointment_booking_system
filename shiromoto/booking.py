@@ -385,6 +385,24 @@ def place(s, shop, services, vehicle, customer, day, start, now, source=ONLINE, 
     return appointment
 
 
+def place_hold(s, shop, services, vehicle_kind, day, start, now, expires_at):
+    """Hold a time without the booking rules or a commit: for sample data (a waitlist
+    offer). Returns the Hold, or None if that time isn't free."""
+    need, problem = slots.need_for(services, vehicle_kind)
+    slot = None if problem else find_slot(s, shop, need, day, start, now, rules=False)
+    if slot is None:
+        return None
+    option, bay = pick(slot)
+    held = Hold(shop_id=shop.id, token=secrets.token_urlsafe(24), vehicle_kind=vehicle_kind,
+                service_ids=",".join(str(sv.id) for sv in services), bay_id=bay.id, mechanic_id=option.mechanic.id,
+                starts_at=slots.start_moment(shop, day, start), ends_at=slots.start_moment(shop, day, option.end),
+                work_minutes=need.work_minutes, created_at=now, expires_at=expires_at)
+    s.add(held)
+    s.flush()
+    add_cells(s, shop, held.starts_at, held.ends_at, bay.id, option.mechanic.id, hold=held)
+    return held
+
+
 # ---------- Changing a booking ----------
 
 def customer_can_change(shop, appointment, now):

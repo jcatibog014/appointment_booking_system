@@ -20,7 +20,7 @@
   {% if step == 1 %}
     <div class="vehicle-choice">
       {% for kind, title, line in (('car', 'Car', 'Sedans, SUVs, vans and pick-ups'), ('moto', 'Motorcycle', 'Scooters, underbones and big bikes')) %}
-        <a class="vehicle-card vehicle-card-{{ kind }}" href="{{ url_for('book.index', vehicle=kind) }}">
+        <a class="vehicle-card vehicle-card-{{ kind }}" href="{{ url_for('book.index', vehicle=kind, day=request.args.day) }}">
           <span class="vehicle-card-title">{{ title }}</span>
           <span class="muted">{{ line }}</span>
         </a>
@@ -30,6 +30,7 @@
   {% elif step == 2 %}
     <form method="get" action="{{ url_for('book.index') }}" class="card stack">
       <input type="hidden" name="vehicle" value="{{ vehicle }}">
+      {% if request.args.day %}<input type="hidden" name="day" value="{{ request.args.day }}">{% endif %}
       <div class="card-head">
         <h2>Services for Your {{ 'Car' if vehicle == 'car' else 'Motorcycle' }}</h2>
         <a class="small" href="{{ url_for('book.index') }}">Change vehicle</a>

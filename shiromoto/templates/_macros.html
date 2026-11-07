@@ -13,7 +13,17 @@
 {# The Other Service's price, as a pill: staff and the customer each see it from their side. #}
 {% macro quote_pill(status, for_customer=False) -%}
   {%- set customer_labels = {'to_price': 'Being checked', 'priced': 'Price to confirm', 'accepted': 'Confirmed', 'declined': 'Declined'} -%}
-  <span class="pill {{ {'to_price': 'pill-no_show', 'priced': 'job-awaiting_approval', 'accepted': 'pill-booked', 'declined': 'pill-off'}[status] }}">{{ customer_labels[status] if for_customer else QUOTE_LABELS[status] }}</span>
+  <span class="pill {{ {'to_price': 'pill-urgent', 'priced': 'pill-calm', 'accepted': 'pill-booked', 'declined': 'pill-off'}[status] }}">{{ customer_labels[status] if for_customer else QUOTE_LABELS[status] }}</span>
+{%- endmacro %}
+
+{# Small line icons (inline SVG, drawn with CSS: no inline styles). #}
+{% macro icon(name) -%}
+  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+    {%- if name == 'eye' %}<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle>
+    {%- elif name == 'calendar' %}<rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M16 3v4M8 3v4M3 10h18"></path>
+    {%- elif name == 'pin' %}<path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"></path><circle cx="12" cy="10" r="2.5"></circle>
+    {%- endif %}
+  </svg>
 {%- endmacro %}
 
 {% macro csrf() %}<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% endmacro %}

@@ -313,6 +313,18 @@ def add_bookings(s, shop, people, today, moment):
                             first_day=today + timedelta(days=days[0]), last_day=today + timedelta(days=days[1]),
                             created_at=moment - timedelta(hours=days[0] * 5)))
     s.flush()
+    # A time opened up for Dan a few minutes ago: the desk's Waitlist shows his offer
+    # draining (it ends 30 minutes after it was made, like a real one).
+    from .models import OFFERED
+    dan = s.scalar(select(WaitlistEntry).where(WaitlistEntry.shop_id == shop.id, WaitlistEntry.name == "Dan Cruz"))
+    offered_at = moment - timedelta(minutes=8)
+    for extra in range((dan.last_day - dan.first_day).days + 1):
+        held = booking.place_hold(s, shop, [services["CVT Cleaning"]], MOTO, dan.first_day + timedelta(days=extra),
+                                  15 * 60, offered_at, offered_at + timedelta(minutes=30))
+        if held is not None:
+            dan.status, dan.hold_token, dan.offers = OFFERED, held.token, 1
+            dan.offered_at, dan.offer_expires_at = offered_at, held.expires_at
+            break
 
 
 # (name, code, stock, low at, price, cost) in pesos

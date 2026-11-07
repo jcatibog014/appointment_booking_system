@@ -33,11 +33,11 @@
         <p class="muted table-empty">No changes yet.</p>
       {% endif %}
     </section>
-    <section class="card">
+    <section class="card" id="receive">
       <h2>Receive or Count</h2>
       <form method="post" class="stack">
         {{ csrf() }}
-        {{ field('change', 'Change', '', hint='+10 for a delivery, -2 after counting', attrs='inputmode="numeric" required') }}
+        {{ field('change', 'Change', request.args.change if (request.args.change or '').lstrip('-').isdigit() else '', hint='+10 for a delivery, -2 after counting', attrs='inputmode="numeric" required') }}
         {{ field('reason', 'Why', hint='Like: Delivery from the supplier', attrs='maxlength="120"') }}
         <div class="form-actions"><button class="button" type="submit">Save</button></div>
       </form>

@@ -18,13 +18,16 @@
         <h2>{{ JOB_LABELS[status] }} <span class="count">{{ items|length }}</span></h2>
         {% for job in items %}
           {% set visit = job.appointment %}
-          <a class="job-card" href="{{ url_for('jobs.show', job_id=job.id) }}">
+          {% set to_approve = job.lines|selectattr('status', 'equalto', 'proposed')|list %}
+          <a class="job-card" href="{{ url_for('jobs.show', job_id=job.id) }}{{ '#estimate' if to_approve else '' }}">
             <strong>{{ visit.vehicle.plate }}</strong>
             <span>{{ visit.vehicle.make }} {{ visit.vehicle.model }}</span>
             <span class="small">{{ visit.lines|map(attribute='name')|join(' + ') }}</span>
             <span class="small muted">{{ visit.customer.name }} · {{ visit.mechanic.name }} · {{ visit.bay.name }}</span>
-            {% if job.lines|selectattr('status', 'equalto', 'proposed')|list %}<span class="pill job-awaiting_approval">Estimate to approve</span>{% endif %}
+            {% if to_approve %}<span class="pill pill-calm">Estimate to approve: {{ to_approve|length }} line{{ 's' if to_approve|length != 1 }}</span>{% endif %}
           </a>
+        {% else %}
+          <p class="job-empty">No vehicles here</p>
         {% endfor %}
       </section>
     {% endfor %}

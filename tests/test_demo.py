@@ -255,3 +255,22 @@ def test_the_demo_has_a_move_request_both_ways(app, demo):
     assert "Move requested" in demo.get("/garage").get_data(as_text=True)
     page = demo.get(f"/b/{asked.ref}").get_data(as_text=True)
     assert "Waiting for the shop" in page and "Withdraw the request" in page and "Ask for another time" not in page
+
+
+def test_the_owners_pages_after_the_polish(app, demo):
+    """The owner's pages: urgent and calm pills, slots that open the booking page,
+    an Order button for low stock, plates as badges, and the offer's draining bar."""
+    today = demo.get("/desk").get_data(as_text=True)
+    assert "pill-urgent" in today and "pill-calm" in today and 'class="icon"' in today  # the calendar icon
+    slots = demo.get("/desk/free").get_data(as_text=True)
+    assert 'class="free-chip" href="/book?day=' in slots
+    page = demo.get(slots.split('class="free-chip" href="')[1].split('"')[0]).get_data(as_text=True)
+    assert "?vehicle=car&amp;day=" in page  # the day carries on into the booking steps
+    parts = demo.get("/desk/parts").get_data(as_text=True)
+    assert ">Order " in parts and "#receive" in parts
+    assert 'class="plate"' in demo.get("/desk/customers").get_data(as_text=True)
+    assert "No vehicles here" in demo.get("/desk/jobs").get_data(as_text=True)
+    board = demo.get("/desk/calendar").get_data(as_text=True)
+    assert "tl-tick" in board and "Lunch break or closed" in board
+    waitlist = demo.get("/desk/waitlist").get_data(as_text=True)
+    assert "Offered a time" in waitlist and "data-drain" in waitlist  # Dan's offer, draining

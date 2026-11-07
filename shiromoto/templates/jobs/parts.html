@@ -10,7 +10,11 @@
     <section class="card low-stock">
       <h2>Low Stock</h2>
       <ul class="plain-list">
-        {% for item in low %}<li><a href="{{ url_for('jobs.part', part_id=item.id) }}"><strong>{{ item.name }}</strong></a> <span class="muted">· {{ item.stock }} left (order at {{ item.low_level }})</span></li>{% endfor %}
+        {# Suggest enough to reach twice the "order at" level: with 2 as the level and 1 left, order 3. #}
+        {% for item in low %}{% set order = [item.low_level * 2 - item.stock, 1]|max %}
+          <li><span><a href="{{ url_for('jobs.part', part_id=item.id) }}"><strong>{{ item.name }}</strong></a> <span class="muted">· {{ item.stock }} left (order at {{ item.low_level }})</span></span>
+            <a class="button button-small" href="{{ url_for('jobs.part', part_id=item.id, change=order) }}#receive">Order {{ order }}</a></li>
+        {% endfor %}
       </ul>
     </section>
   {% endif %}
@@ -39,7 +43,7 @@
     </section>
     <section class="card">
       <h2>Add a Part</h2>
-      <form method="post" class="stack">
+      <form method="post" class="stack roomy-form">
         {{ csrf() }}
         {{ field('name', 'Name', request.form.name if errors else '', errors.name, hint='Like: Brake pads, front (Vios)', attrs='required maxlength="80"') }}
         <div class="form-grid">

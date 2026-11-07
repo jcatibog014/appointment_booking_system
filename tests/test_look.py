@@ -64,6 +64,8 @@ def test_text_and_buttons_are_easy_to_read():
         assert contrast(theme["--accent"], theme["--surface"]) >= 4.5  # links
         assert contrast(theme["--on-accent"], theme["--accent"]) >= 4.5  # button text
         assert contrast(theme["--control-border"], theme["--surface"]) >= 3  # outlined buttons
+        assert contrast(theme["--info-ink"], theme["--info-soft"]) >= 4.5  # calm pills: waiting for someone
+        assert contrast(theme["--danger"], theme["--danger-soft"]) >= 4.5  # urgent pills: the shop must act
     light = tokens(block(":root {"))
     assert contrast(light["--side-ink"], light["--side-bg"]) >= 7
     assert contrast(light["--side-accent"], light["--side-bg"]) >= 4.5

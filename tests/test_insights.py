@@ -106,6 +106,8 @@ def test_an_empty_period(app, week):
 
 def test_chart_geometry():
     assert [insights.nice_top(v) for v in (0, 1, 3, 7, 23, 140, 1000)] == [1, 1, 5, 10, 25, 200, 1000]
+    assert insights.count_ticks(5) == [0, 1, 2, 3, 4, 5] and insights.count_ticks(10) == [0, 2, 4, 6, 8, 10]
+    assert insights.count_ticks(25) == [0, 5, 10, 15, 20, 25] and insights.count_ticks(1) == [0, 1]
     path = insights.column_path(10, 50, 20, 130)
     assert path.startswith("M10.0,180.0V54.0") and path.endswith("V180.0Z")  # square at the base, round on top
     assert insights.step(0, 9) == 0 and insights.step(9, 9) == 5 and insights.step(1, 9) == 1
